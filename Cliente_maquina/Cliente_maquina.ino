@@ -9,13 +9,13 @@ boolean connected = false;
 // Iniciamos el cliente
 WiFiClient client;
 
-void setup() {
-  Serial.begin(9600);
-  connectToWiFi(SSID, psswd); // Nos conectamos al Wifi
+void setup(){
+  Serial.begin(115200);
+  Serial.println("CLIENTE");
+  connectToWiFi(ssid, password); // Nos conectamos al Wifi
+  Serial.printf("Direccion MAC: %s\n", WiFi.macAddress().c_str());
 }
-
 void loop() {
-  
 }
 
 // Funciones WiFi
