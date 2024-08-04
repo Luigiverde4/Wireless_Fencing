@@ -7,6 +7,10 @@ const char* password = "12345678";
 
 // Creamos un servidor en el puerto 80
 WiFiServer server(80);
+struct {
+  int id;
+  String ip;
+} cliente_server;
 
 void setup() {
   Serial.begin(115200);
@@ -24,7 +28,7 @@ void setup() {
 }
 
 void loop() {
-  // Comprobamos si se ha conectado alg�n cliente
+  // Comprobamos si se ha conectado algu  n cliente
   WiFiClient client = server.available();
 
   if (client) { // Se ha conectado alguien
@@ -59,12 +63,12 @@ void listConnectedDevices() {
 
     for (int i = 0; i < stationList.num; i++) {
         wifi_sta_info_t station = stationList.sta[i];
-        IPAddress ip = WiFi.softAPIP(); // Obtiene la IP del dispositivo conectado
 
-        Serial.printf("Dispositivo %d MAC: %02x:%02x:%02x:%02x:%02x:%02x, IP: %s\n", 
+        Serial.printf("Dispositivo %d MAC: %02x:%02x:%02x:%02x:%02x:%02x\n", 
                       i + 1,
                       station.mac[0], station.mac[1], station.mac[2],
-                      station.mac[3], station.mac[4], station.mac[5],
-                      ip.toString().c_str());
+                      station.mac[3], station.mac[4], station.mac[5]
+                    );
     }
 }
+ 
