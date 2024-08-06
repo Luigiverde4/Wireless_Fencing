@@ -1,21 +1,17 @@
 #include <WiFi.h>
 #include <config.h>
 
-// Datos Server y conexion
+// Datos conexion
 const char* IPserver = "192.168.4.1";
-const int port = 80; // Port number for TCP
 int status = WL_IDLE_STATUS;
+unsigned long int id;
+
+// Flags
 boolean connected = false;
 
-// Cliente
-WiFiClient client;
-struct {
-  String ip;
-} cliente_server;
-struct {
-  int hora;
-  String msj;
-} mensaje;
+// UDP
+WiFiUDP udp;
+const int udpPort = 4210;
 
 void setup() {
   Serial.begin(115200);
@@ -23,28 +19,20 @@ void setup() {
   // Conectar  al WiFi
   connectToWiFi(ssid, password); 
   Serial.printf("Direccion MAC: %s\n", WiFi.macAddress().c_str());
-  // Conectar al servidor del WiFi
-  connectToServer(client);
+
+  // Conectar al servidor UDP
+  udp.begin(udpPort);
 }
 
 void loop() {
-  // Guardar en el struct
-  cliente_server.ip = WiFi.localIP().toString();
   // Comprobamos la conexion a WiFi
   if (WiFi.status() != WL_CONNECTED) { // Si el estado NO es conectado
       Serial.println("Estado: NO conectado al WiFi");
       connectToWiFi(ssid, password); // Nos conectamos al wifi
   }
 
-  // Comprobamos la conexion al Server
-  if (client.connected()) { // Si estamos conectados al servidor
-    client.printf("Han pasado %d\n milisegundos",millis()); // Mandamos datos al server
-    delay(3000);
-  } else {                  // Estamos conectados al WiFi pero no al servidor
-    Serial.println("Cliente NO conectado al server, SI al WiFi");
-    client.stop(); // Parar el cliente si nos hemos desconectado (a lo mejor no parar ??)
-    connectToServer(client);  
-  }
+  enviar_datos();
+  delay(3000);
 }
 
 // Funciones WiFi
@@ -81,14 +69,8 @@ void WiFiEvent(WiFiEvent_t event) {
   }
 }
 
-void connectToServer(WiFiClient &client) {
-  /*
-    Conectar el dispositivo a un servidor dentro del wfi
-    client: Cliente con el que vamos a conectarnos al server 
-  */
-  if (client.connect(IPserver, port)) { // Nos intentamos conecetar
-    Serial.println("Conectado al servidor");
-  } else {
-    Serial.println("Fallo en la conexion al servidor");
-  }
+void enviar_datos() {
+  // Enviar el tiempo actual al servidor
+  udp.beginPacket(IPAddress(192, 168, 4, 1), udpPort);
+  udp.printf("ID: %lu\nTICK:%lu \r", id++,millis());
 }

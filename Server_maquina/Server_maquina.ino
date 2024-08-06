@@ -1,20 +1,21 @@
 #include <WiFi.h>
-#include <esp_wifi.h> // Para los dispositivos conectados
 
 // Datos WiFi
 const char* ssid = "ESP32_Server";
 const char* password = "12345678";
 
-// Creamos un servidor en el puerto 80
-WiFiServer server(80);
-struct {
-  int id;
-  String ip;
-} cliente_server;
+// Flags
+bool primera_vez = true;
+
+// Datos UDP
+WiFiUDP udp;
+const unsigned int localUDPPort = 4210; // Puerto
+char incomingPacket[255]; // Buffer para los paquetes entrantes (ajustar a futuro)
+unsigned long int id;
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("SERVIDOR");
+  Serial.println("SERVIDOR UDP");
   // Configuramos el ESP32 como Access Point
   WiFi.softAP(ssid, password);
 
@@ -24,51 +25,33 @@ void setup() {
   Serial.println(myIP);
 
   // Iniciamos el servidor
-  server.begin();
+  udp.begin(localUDPPort);
 }
 
 void loop() {
-  // Comprobamos si se ha conectado algu  n cliente
-  WiFiClient client = server.available();
-
-  if (client) { // Se ha conectado alguien
-    Serial.print("IP Cliente conectado: ");
-    IPAddress IPCliente = client.remoteIP();
-    Serial.println(IPCliente);
-
-    // Procesar la solicitud del cliente aqui
-    // Por ejemplo, leer datos del cliente
-    while (client.connected()) {
-      if (client.available()) {
-        String request = client.readStringUntil('\r');
-        Serial.print("Request: ");
-        Serial.println(request);
-        client.flush();
-      }
+  // Comprobamos si ha llegado algun paquete UDP
+  int packetSize = udp.parsePacket();
+  if (packetSize){              // Tamaño paquete != 0 -> Hay paquete
+    int len = udp.read(incomingPacket, 255);
+    if (len > 0){               // Comprobamos si hay contenido en el paquete
+      incomingPacket[len] = 0;  // Ponemos un 0 para poner fin al string
     }
-
-    // Cerrar la conexion
-    client.stop();
-    Serial.println("Cliente desconectado");
+    Serial.printf("Tamaño paquete: %d de %s:%d\n", packetSize, udp.remoteIP().toString().c_str(), udp.remotePort());
+    Serial.printf("Contenido: %s\n", incomingPacket);
+    //analizar_paquete(incomingPacket):
   }
-  listConnectedDevices();
-  delay(2000);     
+  delay(2000);
 }
 
-void listConnectedDevices() {
-    wifi_sta_list_t stationList;
-    esp_wifi_ap_get_sta_list(&stationList);
 
-    Serial.printf("Numero de dispositivos conectados: %d\n", stationList.num);
-
-    for (int i = 0; i < stationList.num; i++) {
-        wifi_sta_info_t station = stationList.sta[i];
-
-        Serial.printf("Dispositivo %d MAC: %02x:%02x:%02x:%02x:%02x:%02x\n", 
-                      i + 1,
-                      station.mac[0], station.mac[1], station.mac[2],
-                      station.mac[3], station.mac[4], station.mac[5]
-                    );
-    }
+void analizar_paquete(const char* incomingPacket) {
+  if (primera_vez) {
+    sincroReloj();  // Asumiendo que no necesitas pasar la cadena a sincroReloj
+  }
+  // Codigo de analizar voltaje
 }
- 
+
+void sincroReloj() {
+  // Sincroniza el reloj con el cliente
+  Serial.println("Pendiente por hacer");
+}
