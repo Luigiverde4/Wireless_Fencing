@@ -72,5 +72,6 @@ void WiFiEvent(WiFiEvent_t event) {
 void enviar_datos() {
   // Enviar el tiempo actual al servidor
   udp.beginPacket(IPAddress(192, 168, 4, 1), udpPort);
-  udp.printf("ID: %lu\nTICK:%lu \r", id++,millis());
+  udp.printf("ID: %lu\nTICK:%lu\nRSSI: %ld dbm\r", id++,millis(),WiFi.RSSI());
+  udp.endPacket();
 }

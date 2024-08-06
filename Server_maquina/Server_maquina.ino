@@ -43,7 +43,6 @@ void loop() {
   delay(2000);
 }
 
-
 void analizar_paquete(const char* incomingPacket) {
   if (primera_vez) {
     sincroReloj();  // Asumiendo que no necesitas pasar la cadena a sincroReloj
