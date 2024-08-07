@@ -4,7 +4,7 @@
 // Datos conexion
 const char* IPserver = "192.168.4.1";
 int status = WL_IDLE_STATUS;
-unsigned long int id;
+unsigned long int id = 1;
 
 // Flags
 boolean connected = false;
@@ -19,20 +19,19 @@ void setup() {
   // Conectar  al WiFi
   connectToWiFi(ssid, password); 
   Serial.printf("Direccion MAC: %s\n", WiFi.macAddress().c_str());
-
+  connected = true;
   // Conectar al servidor UDP
   udp.begin(udpPort);
 }
 
 void loop() {
+  delay(7); // Con un delay de 10 a 7 habia 0 perdidas. 5 - 20% de perdidas
   // Comprobamos la conexion a WiFi
   if (WiFi.status() != WL_CONNECTED) { // Si el estado NO es conectado
       Serial.println("Estado: NO conectado al WiFi");
       connectToWiFi(ssid, password); // Nos conectamos al wifi
   }
-
   enviar_datos();
-  delay(3000);
 }
 
 // Funciones WiFi
@@ -46,6 +45,7 @@ void connectToWiFi(const char *ssid, const char *pwd) {
   WiFi.disconnect(true);  // Desconectamos del wifi anterior
   WiFi.onEvent(WiFiEvent); // Detectamos si nos hemos conectado
   WiFi.begin(ssid, pwd);  // Iniciamos WiFi
+  delay(1000);            // Delay de 1seg para que le de tiempo
 }
 
 void WiFiEvent(WiFiEvent_t event) {
@@ -53,17 +53,18 @@ void WiFiEvent(WiFiEvent_t event) {
     Lidiar con los WiFiEvents
     event: Evento WiFI que tratar con
   */
-  Serial.println("En WiFiEvent");
+  Serial.printf("En WiFiEvent: %d\n", event);
   switch (event) {
-    case 16: // SYSTEM_EVENT_STA_GOT_IP - Conectado al wifi
+    case 16: // SYSTEM_EVENT_STA_GOT_IP
       Serial.printf("Conectado a WiFi! Direccion IP: %s\n", WiFi.localIP().toString().c_str());
       connected = true;
       break;
-    case 17: // SYSTEM_EVENT_STA_DISCONNECTED - Nos hemos desconectado
+    case 17: // SYSTEM_EVENT_STA_DISCONNECTED
       Serial.println("Perdida conexion WiFi");
       connected = false;
       break;
     default: // El default
+      id = 1;
       Serial.printf("Otro evento: %d\n", event);
       break;
   }
