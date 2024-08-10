@@ -41,7 +41,7 @@ void setup() {
 }
 
 void loop() {
-  delay(7); // Con un delay de 10 a 7 habia 0 perdidas. 5 - 20% de perdidas
+  delay(20); // Un paquete recibido cada 0.05 seg como poco
   // Comprobamos la conexion a WiFi
   if (WiFi.status() != WL_CONNECTED) { // Si el estado NO es conectado
       Serial.println("Estado: NO conectado al WiFi");
