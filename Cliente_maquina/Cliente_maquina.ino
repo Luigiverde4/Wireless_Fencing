@@ -1,6 +1,9 @@
 #include <WiFi.h>
 #include <config.h>
 
+// #define IZQ
+#define DER
+
 // Datos conexion
 const char* IPserver = "192.168.4.1";
 int status = WL_IDLE_STATUS;
@@ -8,18 +11,31 @@ unsigned long int id = 1;
 
 // Flags
 boolean connected = false;
-
 // UDP
 WiFiUDP udp;
-const int udpPort = 4210;
+int udpPort = 4210;  // int para modificar 
 
 void setup() {
   Serial.begin(115200);
   Serial.println("CLIENTE");
-  // Conectar  al WiFi
+
+  // Conectar al WiFi
   connectToWiFi(ssid, password); 
   Serial.printf("Direccion MAC: %s\n", WiFi.macAddress().c_str());
   connected = true;
+
+  #if defined(IZQ)
+    Serial.println("Tirador: Izquierda");
+
+  #elif defined(DER)
+    Serial.println("Tirador: Derecha");
+    udpPort = 4211;  // Ahora es válido modificar udpPort
+
+  #else
+    Serial.println("TIRADOR NO DEFINIDO, auto IZQ");
+    #define IZQ  // Sin punto y coma
+  #endif
+
   // Conectar al servidor UDP
   udp.begin(udpPort);
 }
