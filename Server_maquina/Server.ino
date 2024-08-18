@@ -1,4 +1,5 @@
 #include <WiFi.h>
+#include <maquina.h>
 
 // Datos WiFi
 const char* ssid = "ESP32_Server";

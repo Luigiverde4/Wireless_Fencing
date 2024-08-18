@@ -1,2 +1,4 @@
 Cliente_maquina/config.h
 output/*
+.vscode/
+.vscode/arduino.json
