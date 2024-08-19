@@ -29,7 +29,7 @@ void setup() {
 
   #elif defined(DER)
     Serial.println("Tirador: Derecha");
-    udpPort = 4211;  // Ahora es válido modificar udpPort
+    udpPort = 4211;  // Ahora es valido modificar udpPort
 
   #else
     Serial.println("TIRADOR NO DEFINIDO, auto IZQ");
@@ -90,7 +90,7 @@ void WiFiEvent(WiFiEvent_t event) {
 void enviar_datos() {
   // Enviar el tiempo actual al servidor
   udp.beginPacket(IPAddress(192, 168, 4, 1), udpPort);
-  udp.printf("ID: %lu\nTICK:%lu\r",id++,millis()); // \nRSSI: %ld dbm,WiFi.RSSI()
+  udp.printf("ID: %lu\nTICK:%lu\nV:%d\r",id++,millis(),0); // \nRSSI: %ld dbm,WiFi.RSSI()
   udp.endPacket();
   // Serial.println("Paquete enviado");
 }

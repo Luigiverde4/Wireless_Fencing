@@ -33,6 +33,7 @@ struct UDPConnection {
   unsigned long tiempo;
   unsigned long id;
   unsigned long cont;
+  unsigned int ultima_medicion;
   bool primera_vez;
 
   // Constructor
@@ -44,6 +45,7 @@ struct UDPConnection {
   tiempo(0),
   id(1), 
   cont(1), 
+  ultima_medicion(0),
   primera_vez(true) {}
 };
 
@@ -54,6 +56,12 @@ UDPConnection connection2(4211);
 void setup() {
   Serial.begin(115200);
   Serial.println("SERVIDOR UDP");
+
+  // Inicializamos la maquina
+  mx.begin();
+  mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
+  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
+  mx.clear();  
 
   // Configuramos el ESP32 como Access Point
   WiFi.softAP(ssid, password);
@@ -69,12 +77,14 @@ void setup() {
 }
 
 void loop() {
-  recibir_paquete(connection1);
-  recibir_paquete(connection2);
+  // Primero que reciba paquetes
+  if (recibir_paquete(connection1) || recibir_paquete(connection2)){
+    ponerNumero(1,0);
+  }
 }
 
 // Funcion para recibir paquetes de una conexion UDP específica
-void recibir_paquete(UDPConnection &conn) {
+bool recibir_paquete(UDPConnection &conn) {
   // Comprobamos si ha llegado algun paquete UDP
   int packetSize = conn.udp.parsePacket();
   if (packetSize) { // Tamaño paquete != 0 -> Hay paquete
@@ -83,13 +93,13 @@ void recibir_paquete(UDPConnection &conn) {
       conn.tiempo = millis();
       conn.cont++; // Incrementamos el contador de paquetes recibidos
       conn.incomingPacket[len] = 0; // Ponemos un 0 para poner fin al string
-      analizar_paquete(conn);
+      return analizar_paquete(conn);
     }
   }
 }
 
 // Funcion para analizar un paquete específico
-void analizar_paquete(UDPConnection &conn) {
+bool analizar_paquete(UDPConnection &conn) {
   // Extraer los datos del paquete
   String idStr = obtener_dato(conn.incomingPacket, "ID"); // ID
   conn.id = idStr.toInt();
@@ -123,7 +133,21 @@ void analizar_paquete(UDPConnection &conn) {
   Serial.printf("Puerto %d - Paquetes perdidos: %ld, TOTAL: %ld, PPS: %.2f, Porcentaje perdidos: %.2f%%\n", 
                 conn.port, conn.perdidos, conn.cont, pps, porcentaje_perdidos);
 
-  // Codigo de analizar voltaje (pendiente de implementar)
+  // Analizar voltaje
+  String voltajeStr = obtener_dato(conn.incomingPacket, "V"); // Voltaje
+  int voltaje_actual = voltajeStr.toInt();
+
+  // Si la ultima medicion es diferente a la medicion actual, actualizarla
+  if (conn.ultima_medicion != voltaje_actual) {
+    // Nuevo voltaje
+    conn.ultima_medicion = voltaje_actual;
+    // CODIGO PARA ANALIZAR SI ES TOCADO VALIDO
+    return true;
+
+  } else {
+    // El voltaje no ha cambiado
+    return false;
+  }
 }
 
 // Funcion para obtener un dato específico del paquete

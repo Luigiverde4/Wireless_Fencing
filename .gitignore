@@ -1,4 +1,7 @@
 Cliente_maquina/config.h
 output/*
 .vscode/
+.vscode/*
 .vscode/arduino.json
+teletest
+teletest/*
