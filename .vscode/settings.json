@@ -1,5 +1,14 @@
 {
     "C_Cpp.errorSquiggles": "enabled",
     "C_Cpp.intelliSenseEngineFallback": "enabled",
-    "C_Cpp.default.compilerPath": "C:\\Users\\luigi\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2302\\bin\\xtensa-esp32-elf-g++"
+    "C_Cpp.default.compilerPath": "C:\\Users\\luigi\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2302\\bin\\xtensa-esp32-elf-g++",
+    "files.associations": {
+        "array": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "vector": "cpp",
+        "string_view": "cpp",
+        "initializer_list": "cpp"
+    }
 }

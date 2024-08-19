@@ -55,6 +55,12 @@ void setup() {
   Serial.begin(115200);
   Serial.println("SERVIDOR UDP");
 
+  // Inicializamos la maquina
+  mx.begin();
+  mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
+  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
+  mx.clear();  
+
   // Configuramos el ESP32 como Access Point
   WiFi.softAP(ssid, password);
 
@@ -71,6 +77,7 @@ void setup() {
 void loop() {
   recibir_paquete(connection1);
   recibir_paquete(connection2);
+  ponerNumero(1,0);
 }
 
 // Funcion para recibir paquetes de una conexion UDP específica
