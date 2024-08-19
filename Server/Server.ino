@@ -63,6 +63,12 @@ void setup() {
   mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
   mx.clear();  
 
+  // Inicializamos la maquina
+  mx.begin();
+  mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
+  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
+  mx.clear();  
+
   // Configuramos el ESP32 como Access Point
   WiFi.softAP(ssid, password);
 
