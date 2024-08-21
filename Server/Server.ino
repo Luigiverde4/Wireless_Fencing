@@ -63,12 +63,6 @@ void setup() {
   mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
   mx.clear();  
 
-  // Inicializamos la maquina
-  mx.begin();
-  mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
-  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
-  mx.clear();  
-
   // Configuramos el ESP32 como Access Point
   WiFi.softAP(ssid, password);
 
@@ -85,6 +79,7 @@ void setup() {
 void loop() {
   // Primero que reciba paquetes
   if (recibir_paquete(connection1) || recibir_paquete(connection2)){
+    // Trabajar con matriz de LEDs
     ponerNumero(1,0);
   }
 }
@@ -106,6 +101,10 @@ bool recibir_paquete(UDPConnection &conn) {
 
 // Funcion para analizar un paquete específico
 bool analizar_paquete(UDPConnection &conn) {
+/*
+    &conn: Objeto de comunicacion UDP
+    returns: TRUE si ha cambiado el voltaje - FALSE si NO ha cambiado el voltaje
+*/
   // Extraer los datos del paquete
   String idStr = obtener_dato(conn.incomingPacket, "ID"); // ID
   conn.id = idStr.toInt();
@@ -129,11 +128,11 @@ bool analizar_paquete(UDPConnection &conn) {
     conn.cont = conn.id; // Actualizamos el contador al ID del ultimo paquete recibido
   }
 
-  // Calculamos el porcentaje de paquetes perdidos
+  // Porcentaje de paquetes perdidos
   float porcentaje_perdidos = (float)conn.perdidos / (conn.cont - conn.primer_id) * 100.0;
-  // Calculamos el tiempo transcurrido en segundos
+  // Tiempo transcurrido en segundos
   float tiempo_transcurrido = (conn.tiempo - conn.primer_tiempo) / 1000.0;
-  // Calculamos los paquetes por segundo (PPS)
+  // Paquetes Por Segundo (PPS)
   float pps = (conn.cont - conn.primer_id) / tiempo_transcurrido;
 
   Serial.printf("Puerto %d - Paquetes perdidos: %ld, TOTAL: %ld, PPS: %.2f, Porcentaje perdidos: %.2f%%\n", 
@@ -195,18 +194,136 @@ void sincroReloj() {
   Serial.println("Pendiente por hacer");
 }
 
+
+void ponerNumero(int numero, int pos_x) {
+/*
+    int numero: numero a escribir en la matriz 
+    int pos_x: posición en donde se escribe el numero
+
+    Escribe el numero en la matriz
+*/
+    // Comprobamos que el numero está en el rango
+    if (numero < 0 || numero > 9) {
+        Serial.println("numero fuera de rango");
+        return;
+    }
+
+    // Dibujamos el número en la matriz a partir de pos_x
+    for (int columna = 0; columna < 8; columna++) { // Recorremos columnas
+		for (int fila = 0; fila < 8; fila++) {      // Recorremos las filas de la columna
+            // Obtenemos el valor del bit correspondiente de la columna
+            bool valor = (numeros[numero][columna] >> fila) & 1;
+            // Ponemos el punto en la matriz
+            mx.setPoint(columna, pos_x + fila, valor);
+        }
+    }
+}
+
+
+void ponerPuntos(int puntaje1, int puntaje2) {
+    // Copiar los puntos en la matriz
+    ponerNumero(puntaje1, 24);    // Puntaje jugador 1,0 ya que es el primer bloque
+    ponerNumero(puntaje2, 0);   // Puntaje jugador 2, 24 ya que es el 4to bloque
+}
+void ponerTiempo(int minutos, int segundos){
+    // Mostrar minutos
+    ponerNumero(minutos, 15);     // Minutos, comenzando en la posición 8
+    
+    /*
+    // Mitad superior
+    int decenas_segundos = segundos / 10; // Decenas de segundos
+    for (int fila = 0; fila < 4; fila++) { // Recorremos las 4 filas
+        for (int columna = 0; columna < 4; columna++) { // Recorremos las 4 columnas
+            // Copiar bits de numeros_chiquitos al arreglo matrix_led para la mitad superior
+            [8 + columna][fila] = numeros_chiquitos[decenas_segundos][fila][columna]; // Empezamos desde la columna 18, lo mas arriba posible , fila 0
+        }
+    }
+    
+    // Mitad inferior
+    int unidades_segundos = segundos % 10; // Segundos
+    for (int fila = 0; fila < 4; fila++) { // Recorremos las 4 filas
+        for (int columna = 0; columna < 4; columna++) { // Recorremos las 4 columnas
+            // Copiar bits de numeros_chiquitos al arreglo matrix_led para la mitad inferior
+            [12 + columna][fila + 4] = numeros_chiquitos[unidades_segundos][fila][columna]; // Empezamos desde la columna 20, fila 4
+        }
+    }
+    */
+}
+void vaciarMatriz() {
+/*
+    Asigna los valores de las filas de cada columna a 0
+*/
+    for (int x = 0; x < 32; x++) {
+        for (int y = 0; y<8;y++){
+            mx.setPoint(y, x, false); 
+        }
+    }
+}
+
+// Manipular puntos
+void manipularPunto(int jugador, int cambio) {
+/*
+    Incrementa / Decrementa y limita el valor de puntos del tirador
+*/
+    if (jugador == 1) {
+        puntaje1 = constrain(puntaje1 + cambio, 0, 15); // Limitamos el puntaje entre 0 y 15
+    } else if (jugador == 2) {
+        puntaje2 = constrain(puntaje2 + cambio, 0, 15);
+    }
+}
+void resetPuntos(){
+/*
+    Resetea los puntos de los dos jugadores a 0
+*/
+  puntaje1 = 0;
+  puntaje2 = 0;
+}
+
+// Tiempo
+void cuentaAtras(){
+/*
+    Actualiza el transcurso del tiempo del marcador
+*/
+    static unsigned long tiempo_previo = 0;
+    unsigned long tiempo_pasado = millis();
+    const static long intervalo = 1000;
+
+    if (segundos == 0 && minutos != 0){ // No es el ultimo minuto
+    segundos = 59;
+    minutos--;
+    }else if(segundos == 0 && minutos == 0){ // Se ha acabado el tiempo
+    segundos = 0;
+    minutos = 0;
+    tone(7, 1000, 300); // Utilizando el pin 7 para el altavoz
+    return;
+    }
+
+    if (tiempo_pasado - tiempo_previo >= intervalo) { // Ha pasado 1seg ?
+    tiempo_previo = tiempo_pasado;
+    segundos--;
+    }
+}
+
+void resetTiempo(){
+/*
+    Resetea el tiempo a 3min y 0seg
+*/
+    minutos = 3;
+    segundos = 0;
+}
+
 // FUNCIONES MAQUINA
 const byte numeros[10][8] = {
     // 0
     { 
-    0b00111100, 
+    0b00111000, 
     0b01000100, 
     0b01000100, 
     0b01000100, 
     0b01000100, 
     0b01000100, 
     0b01000100, 
-    0b00111100 },
+    0b00111000 },
 
     // 1
     { 
@@ -267,12 +384,13 @@ const byte numeros[10][8] = {
     { 
     0b00111100, 
     0b01000000, 
-    0b01000000, 
+    0b01000000,
+    0b01000000,
     0b01111100, 
     0b01000010, 
     0b01000010, 
     0b00111100, 
-    0b00000000 },
+     },
 
     // 7
     { 
@@ -307,119 +425,3 @@ const byte numeros[10][8] = {
     0b01000010, 
     0b00111100 }
 };
-
-void ponerNumero(int numero, int pos_x) {
-/*
-    int numero: numero a escribir en la matriz 
-    int pos_x: posición en donde se escribe el numero
-
-    Escribe el numero en la matriz
-*/
-    // Comprobamos que el numero está en el rango
-    if (numero < 0 || numero > 9) {
-        Serial.println("numero fuera de rango");
-        return;
-    }
-
-    // Dibujamos el numero en la matriz a partir de pos_x
-    for (int columna = 0; columna < 8; columna++) { // Recorremos columnas
-        for (int fila = 0; fila < 8; fila++) {      // Recorremos las filas de la columna
-            // Obtenemos el valor del bit correspondiente de la columna
-            bool valor = (numeros[numero][columna] >> fila) & 1;
-            // Ponemos el punto en la matriz
-            mx.setPoint(pos_x + columna, fila, valor);
-        }
-    }
-}
-
-void ponerPuntos(int puntaje1, int puntaje2) {
-    // Copiar los puntos en la matriz
-    ponerNumero(puntaje1, 24);    // Puntaje jugador 1,0 ya que es el primer bloque
-    ponerNumero(puntaje2, 0);   // Puntaje jugador 2, 24 ya que es el 4to bloque
-}
-void ponerTiempo(int minutos, int segundos){
-    // Mostrar minutos
-    ponerNumero(minutos, 15);     // Minutos, comenzando en la posición 8
-    
-    /*
-    // Mitad superior
-    int decenas_segundos = segundos / 10; // Decenas de segundos
-    for (int fila = 0; fila < 4; fila++) { // Recorremos las 4 filas
-        for (int columna = 0; columna < 4; columna++) { // Recorremos las 4 columnas
-            // Copiar bits de numeros_chiquitos al arreglo matrix_led para la mitad superior
-            [8 + columna][fila] = numeros_chiquitos[decenas_segundos][fila][columna]; // Empezamos desde la columna 18, lo mas arriba posible , fila 0
-        }
-    }
-    
-    // Mitad inferior
-    int unidades_segundos = segundos % 10; // Segundos
-    for (int fila = 0; fila < 4; fila++) { // Recorremos las 4 filas
-        for (int columna = 0; columna < 4; columna++) { // Recorremos las 4 columnas
-            // Copiar bits de numeros_chiquitos al arreglo matrix_led para la mitad inferior
-            [12 + columna][fila + 4] = numeros_chiquitos[unidades_segundos][fila][columna]; // Empezamos desde la columna 20, fila 4
-        }
-    }
-    */
-}
-void vaciarMatriz() {
-/*
-    Asigna los valores de las filas de cada columna a 0
-*/
-    for (int x = 0; x < 32; x++) {
-        for (int y = 0; y<8;y++){
-            mx.setPoint(y, x, 0); 
-        }
-    }
-}
-
-// Manipular puntos
-void manipularPunto(int jugador, int cambio) {
-/*
-    Incrementa / Decrementa y limita el valor de puntos del tirador
-*/
-    if (jugador == 1) {
-        puntaje1 = constrain(puntaje1 + cambio, 0, 15); // Limitamos el puntaje entre 0 y 15
-    } else if (jugador == 2) {
-        puntaje2 = constrain(puntaje2 + cambio, 0, 15);
-    }
-}
-void resetPuntos(){
-/*
-    Resetea los puntos de los dos jugadores a 0
-*/
-  puntaje1 = 0;
-  puntaje2 = 0;
-}
-
-// Tiempo
-void cuentaAtras(){
-/*
-    Actualiza el transcurso del tiempo del marcador
-*/
-    static unsigned long tiempo_previo = 0;
-    unsigned long tiempo_pasado = millis();
-    const static long intervalo = 1000;
-
-    if (segundos == 0 && minutos != 0){ // No es el ultimo minuto
-    segundos = 59;
-    minutos--;
-    }else if(segundos == 0 && minutos == 0){ // Se ha acabado el tiempo
-    segundos = 0;
-    minutos = 0;
-    tone(7, 1000, 300); // Utilizando el pin 7 para el altavoz
-    return;
-    }
-
-    if (tiempo_pasado - tiempo_previo >= intervalo) { // Ha pasado 1seg ?
-    tiempo_previo = tiempo_pasado;
-    segundos--;
-    }
-}
-
-void resetTiempo(){
-/*
-    Resetea el tiempo a 3min y 0seg
-*/
-    minutos = 3;
-    segundos = 0;
-}
