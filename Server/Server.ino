@@ -46,7 +46,7 @@ struct UDPConnection {
   id(1), 
   cont(1), 
   ultima_medicion(0),
-  primera_vez(true) {}
+  primera_vez(1) {}
 };
 
 // Crear dos instancias de UDPConnection
@@ -103,7 +103,7 @@ bool recibir_paquete(UDPConnection &conn) {
 bool analizar_paquete(UDPConnection &conn) {
 /*
     &conn: Objeto de comunicacion UDP
-    returns: TRUE si ha cambiado el voltaje - FALSE si NO ha cambiado el voltaje
+    returns: 1 si ha cambiado el voltaje - 0 si NO ha cambiado el voltaje
 */
   // Extraer los datos del paquete
   String idStr = obtener_dato(conn.incomingPacket, "ID"); // ID
@@ -118,7 +118,7 @@ bool analizar_paquete(UDPConnection &conn) {
     // Tomamos el tiempo de cuando se recibe el primer paquete
     conn.primer_tiempo = conn.tiempo;
     // Marcamos que ya no es la primera vez
-    conn.primera_vez = false;
+    conn.primera_vez = 0;
   }
 
   if (idStr.length() > 0) { // Si ha encontrado el ID
@@ -147,11 +147,11 @@ bool analizar_paquete(UDPConnection &conn) {
     // Nuevo voltaje
     conn.ultima_medicion = voltaje_actual;
     // CODIGO PARA ANALIZAR SI ES TOCADO VALIDO
-    return true;
+    return 1;
 
   } else {
     // El voltaje no ha cambiado
-    return false;
+    return 0;
   }
 }
 
@@ -194,25 +194,47 @@ void sincroReloj() {
   Serial.println("Pendiente por hacer");
 }
 
+// FUNCIONES MAQUINA
+void ponerNumero(int numero, int pos_x, bool chiquitos = false, bool despl = false) {
+    /*
+        int numero: numero a escribir en la matriz 
+        int pos_x: posición en donde se escribe el numero
+        bool chiquitos: si es true, escribe numeros pequeños, si es false, escribe numeros grandes
+        despl: true - es el numero chiquito de abajo false - no abajo
+        Escribe el numero en la matriz
+    */
 
-void ponerNumero(int numero, int pos_x) {
-/*
-    int numero: numero a escribir en la matriz 
-    int pos_x: posición en donde se escribe el numero
+    // Imprimir el número y la posición
+    Serial.print("Numero: ");
+    Serial.println(numero);
 
-    Escribe el numero en la matriz
-*/
-    // Comprobamos que el numero está en el rango
-    if (numero < 0 || numero > 9) {
-        Serial.println("numero fuera de rango");
-        return;
-    }
+    Serial.print("pos_x: ");
+    Serial.println(pos_x);
+    Serial.print("\n");
+
+    // Deberia estar en el ranago de 0-9 (actualmente)
+
+    // Seleccion de matriz
+    const byte (*matriz)[8] = chiquitos ? reinterpret_cast<const byte (*)[8]>(numeros_chiquitos) : numeros;
+    int offset = despl ? 4 : 0;
+    int limiteColumnas = chiquitos ? 4 : 8;
+    int limiteFilas = 8;
 
     // Dibujamos el número en la matriz a partir de pos_x
-    for (int columna = 0; columna < 8; columna++) { // Recorremos columnas
-		for (int fila = 0; fila < 8; fila++) {      // Recorremos las filas de la columna
+    for (int columna = 0 + offset; columna < limiteColumnas + offset; columna++) { // Recorremos columnas
+        Serial.print("Columna: ");
+        Serial.println(columna);
+
+        for (int fila = 0 ; fila < limiteFilas; fila++) { // Recorremos las filas de la columna
+            Serial.print("Fila: ");
+            Serial.print(fila);
+
             // Obtenemos el valor del bit correspondiente de la columna
-            bool valor = (numeros[numero][columna] >> fila) & 1;
+            bool valor = (matriz[numero][columna-offset] >> fila) & 1; // Ponemos el - para que no coja el siguiente numero
+
+            Serial.print(" Valor: ");
+            Serial.println(valor);
+
             // Ponemos el punto en la matriz
             mx.setPoint(columna, pos_x + fila, valor);
         }
@@ -220,34 +242,30 @@ void ponerNumero(int numero, int pos_x) {
 }
 
 
+
 void ponerPuntos(int puntaje1, int puntaje2) {
     // Copiar los puntos en la matriz
     ponerNumero(puntaje1, 24);    // Puntaje jugador 1,0 ya que es el primer bloque
     ponerNumero(puntaje2, 0);   // Puntaje jugador 2, 24 ya que es el 4to bloque
 }
-void ponerTiempo(int minutos, int segundos){
-    // Mostrar minutos
-    ponerNumero(minutos, 15);     // Minutos, comenzando en la posición 8
-    
-    /*
-    // Mitad superior
+void ponerTiempo(int minutos, int segundos) {
+    // Mitad superior (decenas de segundos)
     int decenas_segundos = segundos / 10; // Decenas de segundos
-    for (int fila = 0; fila < 4; fila++) { // Recorremos las 4 filas
-        for (int columna = 0; columna < 4; columna++) { // Recorremos las 4 columnas
-            // Copiar bits de numeros_chiquitos al arreglo matrix_led para la mitad superior
-            [8 + columna][fila] = numeros_chiquitos[decenas_segundos][fila][columna]; // Empezamos desde la columna 18, lo mas arriba posible , fila 0
-        }
-    }
+    Serial.print("Decenas de segundo ");
+    Serial.println(decenas_segundos);
+    ponerNumero(decenas_segundos,12,true);
+
     
-    // Mitad inferior
-    int unidades_segundos = segundos % 10; // Segundos
-    for (int fila = 0; fila < 4; fila++) { // Recorremos las 4 filas
-        for (int columna = 0; columna < 4; columna++) { // Recorremos las 4 columnas
-            // Copiar bits de numeros_chiquitos al arreglo matrix_led para la mitad inferior
-            [12 + columna][fila + 4] = numeros_chiquitos[unidades_segundos][fila][columna]; // Empezamos desde la columna 20, fila 4
-        }
-    }
-    */
+    // Mitad inferior (unidades de segundos)
+    int unidades_segundos = segundos % 10; // Unidades de segundos
+    Serial.print("Unidades de segundo ");
+    Serial.println(unidades_segundos);
+    ponerNumero(unidades_segundos,8,true,true);
+
+    // Mostrar minutos en la matriz
+    ponerNumero(minutos, 16);     
+
+    
 }
 void vaciarMatriz() {
 /*
@@ -255,7 +273,7 @@ void vaciarMatriz() {
 */
     for (int x = 0; x < 32; x++) {
         for (int y = 0; y<8;y++){
-            mx.setPoint(y, x, false); 
+            mx.setPoint(y, x, 0); 
         }
     }
 }
@@ -312,7 +330,6 @@ void resetTiempo(){
     segundos = 0;
 }
 
-// FUNCIONES MAQUINA
 const byte numeros[10][8] = {
     // 0
     { 
@@ -424,4 +441,78 @@ const byte numeros[10][8] = {
     0b00000010, 
     0b01000010, 
     0b00111100 }
+};
+
+
+const byte numeros_chiquitos[10][4] = {
+    // Número 0
+    {
+      0b00000110, 
+      0b00001001, 
+      0b00001001, 
+      0b00000110
+    },
+    // Número 1
+    {
+        0b00000010,
+        0b00000110,
+        0b00000010,
+        0b00000111,
+    },
+    // Número 2
+    {
+        0b00001110,
+        0b00000011,
+        0b00000100,
+        0b00001111
+    },
+    // Número 3
+    {
+        0b00001110,
+        0b00000011,
+        0b00000011,
+        0b00001110
+    },
+    // Número 4
+    {
+        0b00001010,
+        0b00001010,
+        0b00001111,
+        0b00000010
+    },
+    // Número 5
+    {
+        0b00000111,
+        0b00000100,
+        0b00000011,
+        0b00000111
+    },
+    // Número 6
+    {
+        0b00001110,
+        0b00001000,
+        0b00001110,
+        0b00001110
+    },
+    // Número 7
+    {
+        0b00001111,
+        0b00000010,
+        0b00000100,
+        0b00000100,
+    },
+    // Número 8
+    {
+        0b00000110,
+        0b00001101,
+        0b00001011,
+        0b00000110
+    },
+    // Número 9
+    {
+        0b00000111,
+        0b00000111,
+        0b00000001,
+        0b00000111
+    }
 };
