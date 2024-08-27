@@ -165,14 +165,14 @@ String obtener_dato(const char* packet, const char* clave) {
     String packetStr = String(packet);
     String clave_a_encontrar = String(clave) + ": ";
   
-    // Encuentra la posición en la cadena packetStr donde comienza clave_a_encontrar.
+    // Encuentra la posicion en la cadena packetStr donde comienza clave_a_encontrar.
     int IndiceInicial = packetStr.indexOf(clave_a_encontrar);
   
     if (IndiceInicial != -1) { // Si clave_a_encontrar es encontrada
         // Ajusta IndiceInicial para que apunte al comienzo del valor asociado a la clave.
         IndiceInicial += clave_a_encontrar.length();
       
-        // Encuentra la posición del siguiente salto de línea
+        // Encuentra la posicion del siguiente salto de línea
         int IndiceFinal = packetStr.indexOf("\n", IndiceInicial);
       
         // Si no se encuentra el salto , pone IndiceFinal para que sea el final de la cadena.
@@ -198,49 +198,39 @@ void sincroReloj() {
 void ponerNumero(int numero, int pos_x, bool chiquitos = false, bool despl = false) {
     /*
         int numero: numero a escribir en la matriz 
-        int pos_x: posición en donde se escribe el numero
-        bool chiquitos: si es true, escribe numeros pequeños, si es false, escribe numeros grandes
-        despl: true - es el numero chiquito de abajo false - no abajo
-        Escribe el numero en la matriz
+        int pos_x: posicion en donde se escribe el numero
+        bool chiquitos: si es true, escribe numeros pequeños; si es false, escribe numeros grandes
+        despl: true - es el numero chiquito de abajo; false - no abajo
     */
+    Serial.print("Numero: "); Serial.println(numero);
+    //Serial.print("Pos_x: "); Serial.println(pos_x);
+    
+    // VARIABLES VARIAS
+    int offset = despl ? 4 : 0; // Offset para los num de abajo
+    const int limiteColumnas = chiquitos ? 4 : 8; // Limite de columnas 
+    const int limiteFilas = 8; // Siempre 8 filas
 
-    // Imprimir el número y la posición
-    Serial.print("Numero: ");
-    Serial.println(numero);
-
-    Serial.print("pos_x: ");
-    Serial.println(pos_x);
-    Serial.print("\n");
-
-    // Deberia estar en el ranago de 0-9 (actualmente)
-
-    // Seleccion de matriz
-    const byte (*matriz)[8] = chiquitos ? reinterpret_cast<const byte (*)[8]>(numeros_chiquitos) : numeros;
-    int offset = despl ? 4 : 0;
-    int limiteColumnas = chiquitos ? 4 : 8;
-    int limiteFilas = 8;
-
-    // Dibujamos el número en la matriz a partir de pos_x
+    // Escoger matriz correcta
+    const byte (*matriz)[limiteColumnas] = chiquitos ? numeros_chiquitos : numeros;
+    
+    // Dibujar el numero en la matriz a partir de pos_x
     for (int columna = 0 + offset; columna < limiteColumnas + offset; columna++) { // Recorremos columnas
-        Serial.print("Columna: ");
-        Serial.println(columna);
-
-        for (int fila = 0 ; fila < limiteFilas; fila++) { // Recorremos las filas de la columna
-            Serial.print("Fila: ");
-            Serial.print(fila);
-
-            // Obtenemos el valor del bit correspondiente de la columna
-            bool valor = (matriz[numero][columna-offset] >> fila) & 1; // Ponemos el - para que no coja el siguiente numero
-
-            Serial.print(" Valor: ");
-            Serial.println(valor);
-
-            // Ponemos el punto en la matriz
+        for (int fila = 0; fila < limiteFilas; fila++) { // Recorremos las filas de la columna
+            
+            // Pasamos de los 0 de relleno
+            if (chiquitos && fila >=4) {
+                    continue;
+                }
+            // Cogemos el valor del bit de la mariz
+            bool valor = (matriz[numero][columna - offset] >> fila) & 1;
+            
+            Serial.print(valor);
+            // Poner el valor en la matriz
             mx.setPoint(columna, pos_x + fila, valor);
         }
+        Serial.println();
     }
 }
-
 
 
 void ponerPuntos(int puntaje1, int puntaje2) {
@@ -248,25 +238,23 @@ void ponerPuntos(int puntaje1, int puntaje2) {
     ponerNumero(puntaje1, 24);    // Puntaje jugador 1,0 ya que es el primer bloque
     ponerNumero(puntaje2, 0);   // Puntaje jugador 2, 24 ya que es el 4to bloque
 }
-void ponerTiempo(int minutos, int segundos) {
+void ponerTiempo(int minutos, int segundos, bool min_cambio = false) {
+    Serial.print("Segundos: ");Serial.println(segundos);
+
     // Mitad superior (decenas de segundos)
     int decenas_segundos = segundos / 10; // Decenas de segundos
-    Serial.print("Decenas de segundo ");
-    Serial.println(decenas_segundos);
-    ponerNumero(decenas_segundos,12,true);
+    ponerNumero(decenas_segundos,12,true,false);
 
     
     // Mitad inferior (unidades de segundos)
     int unidades_segundos = segundos % 10; // Unidades de segundos
-    Serial.print("Unidades de segundo ");
-    Serial.println(unidades_segundos);
     ponerNumero(unidades_segundos,8,true,true);
-
-    // Mostrar minutos en la matriz
-    ponerNumero(minutos, 16);     
-
     
+    // Mostrar minutos en la matriz, comenzando en la posicion 15
+    if (min_cambio){ponerNumero(minutos, 16);}
+
 }
+
 void vaciarMatriz() {
 /*
     Asigna los valores de las filas de cada columna a 0
@@ -307,18 +295,17 @@ void cuentaAtras(){
     const static long intervalo = 1000;
 
     if (segundos == 0 && minutos != 0){ // No es el ultimo minuto
-    segundos = 59;
-    minutos--;
+      segundos = 59;
+      minutos--;
     }else if(segundos == 0 && minutos == 0){ // Se ha acabado el tiempo
-    segundos = 0;
-    minutos = 0;
-    tone(7, 1000, 300); // Utilizando el pin 7 para el altavoz
+      segundos = 0;
+      minutos = 0;
     return;
     }
 
     if (tiempo_pasado - tiempo_previo >= intervalo) { // Ha pasado 1seg ?
-    tiempo_previo = tiempo_pasado;
-    segundos--;
+      tiempo_previo = tiempo_pasado;
+      segundos--;
     }
 }
 
