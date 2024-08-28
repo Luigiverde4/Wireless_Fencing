@@ -14,27 +14,31 @@ const char* password = "12345678";
 
 // Estructura para manejar cada conexion UDP
 struct UDPConnection {
+  WiFiUDP udp;
+  unsigned int port;
+  char incomingPacket[255];
   /*
         Paquetes (pck)
   perdidos -> Nº pck perdidos
   primer_id -> ID del 1er pck que llega
   id -> ID del paquete recibido
   cont -> Contador de los pck recibidos
+  ultima_medicion -> Ultimo valor registrado de voltaje
+  primera_vez -> T/F de si es la primera vez que se conecta
           Tiempo
   primer_tiempo -> Momento en el que llega el 1er pck
   tienpo -> Momento en el que se recibe el pck 
   */
-  WiFiUDP udp;
-  unsigned int port;
-  char incomingPacket[255];
   unsigned long perdidos;
   unsigned long primer_id;
-  unsigned long primer_tiempo;
-  unsigned long tiempo;
   unsigned long id;
   unsigned long cont;
+
   unsigned int ultima_medicion;
   bool primera_vez;
+
+  unsigned long primer_tiempo;
+  unsigned long tiempo;
 
   // Constructor
   UDPConnection(unsigned int p) : 
@@ -215,7 +219,6 @@ void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = f
 
     // Dibujar el numero en la matriz a partir de pos_x
     for (int columna = 0 + offset; columna < limiteColumnas + offset; columna++) { // Recorremos columnas
-        if (chiquitos && fila < 4) continue; // Nos saltamos los bits vacios
         byte valor = matriz[numero][columna - offset]; // Obtener valor de la columna actual
         valor = (chiquitos && despl) ? (valor >>4) : valor; // Queremos coger solo los 4 bits con info
 
@@ -228,6 +231,13 @@ void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = f
 }
 
 void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
+/*
+    byte minutos: Cantidad de minutos restantes
+    byte segundos: Cantidad de segundos restantes
+    bool min_cambio: Si ha cambiado el minuto
+
+        Pone el tiempo del cronometro en la matriz
+*/
     Serial.print("Segundos: ");Serial.println(segundos);
 
     // Mitad superior (decenas de segundos)
@@ -256,6 +266,12 @@ void vaciarMatriz() {
 
 // Manipular puntos
 void ponerPuntos(byte &puntaje1, byte &puntaje2) {
+/*
+    byte &puntaje1: Valor del puntaje global para el tirador 1
+    byte &puntaje2: Valor del puntaje global para el tirador 2  
+        
+        Pone los puntos a los tiradores y los limita entre 0 y 15 
+*/
     puntaje1 = constrain(puntaje1, 0, 15);
     puntaje2 = constrain(puntaje2, 0, 15);
     // Copiar los puntos en la matriz
@@ -282,7 +298,7 @@ void cuentaAtras(){
     bool min_cambio;
 
     if (segundos == 0 && minutos != 0){ // No es el ultimo minuto y se ha acabado el actual
-        segundos = 59;
+        segundos = 60;
         minutos--;
         min_cambio = true; // Aqui hay un fallo y nunca sale el 59!!!
 
