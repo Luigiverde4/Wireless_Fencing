@@ -195,7 +195,7 @@ void sincroReloj() {
 }
 
 // FUNCIONES MAQUINA
-void ponerNumero(int numero, int pos_x, bool chiquitos = false, bool despl = false) {
+void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = false) {
     /*
         int numero: numero a escribir en la matriz 
         int pos_x: posicion en donde se escribe el numero
@@ -232,13 +232,7 @@ void ponerNumero(int numero, int pos_x, bool chiquitos = false, bool despl = fal
     }
 }
 
-
-void ponerPuntos(int puntaje1, int puntaje2) {
-    // Copiar los puntos en la matriz
-    ponerNumero(puntaje1, 24);    // Puntaje jugador 1,0 ya que es el primer bloque
-    ponerNumero(puntaje2, 0);   // Puntaje jugador 2, 24 ya que es el 4to bloque
-}
-void ponerTiempo(int minutos, int segundos, bool min_cambio = false) {
+void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
     Serial.print("Segundos: ");Serial.println(segundos);
 
     // Mitad superior (decenas de segundos)
@@ -267,16 +261,14 @@ void vaciarMatriz() {
 }
 
 // Manipular puntos
-void manipularPunto(int jugador, int cambio) {
-/*
-    Incrementa / Decrementa y limita el valor de puntos del tirador
-*/
-    if (jugador == 1) {
-        puntaje1 = constrain(puntaje1 + cambio, 0, 15); // Limitamos el puntaje entre 0 y 15
-    } else if (jugador == 2) {
-        puntaje2 = constrain(puntaje2 + cambio, 0, 15);
-    }
+void ponerPuntos(byte &puntaje1, byte &puntaje2) {
+    puntaje1 = constrain(puntaje1, 0, 15);
+    puntaje2 = constrain(puntaje2, 0, 15);
+    // Copiar los puntos en la matriz
+    ponerNumero(puntaje1, 24);    // Puntaje jugador 1, posición 24
+    ponerNumero(puntaje2, 0);     // Puntaje jugador 2, posición 0
 }
+
 void resetPuntos(){
 /*
     Resetea los puntos de los dos jugadores a 0
@@ -430,14 +422,14 @@ const byte numeros[16][8] = {
     0b00111100 },
     //  10
     { 
-    0b100011000, 
-    0b100100010, 
-    0b100100010, 
-    0b100100010, 
-    0b100100010, 
-    0b100100010, 
-    0b100100010, 
-    0b10001100 },
+    0b10001110, 
+    0b10010001, 
+    0b10010001, 
+    0b10010001, 
+    0b10010001, 
+    0b10010001, 
+    0b10010001, 
+    0b10001110},
     //  11
     { 
     0b00100010,
@@ -491,7 +483,6 @@ const byte numeros[16][8] = {
     0b11100110 },
 
 };
-
 
 const byte numeros_chiquitos[10][4] = {
     // Número 0
