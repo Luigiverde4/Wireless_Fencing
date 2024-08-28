@@ -197,39 +197,34 @@ void sincroReloj() {
 // FUNCIONES MAQUINA
 void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = false) {
     /*
-        int numero: numero a escribir en la matriz 
-        int pos_x: posicion en donde se escribe el numero
+        byte numero: numero a escribir en la matriz 
+        byte pos_x: posición en donde se escribe el numero
         bool chiquitos: si es true, escribe numeros pequeños; si es false, escribe numeros grandes
-        despl: true - es el numero chiquito de abajo; false - no abajo
+        bool despl: true - numero chiquito de abajo; false - no abajo
     */
     Serial.print("Numero: "); Serial.println(numero);
     //Serial.print("Pos_x: "); Serial.println(pos_x);
     
     // VARIABLES VARIAS
-    int offset = despl ? 4 : 0; // Offset para los num de abajo
+    int offset = despl ? 4 : 0; // Offset para los numeros pequeños de abajo
     const int limiteColumnas = chiquitos ? 4 : 8; // Limite de columnas 
     const int limiteFilas = 8; // Siempre 8 filas
 
     // Escoger matriz correcta
     const byte (*matriz)[limiteColumnas] = chiquitos ? numeros_chiquitos : numeros;
-    
+
     // Dibujar el numero en la matriz a partir de pos_x
     for (int columna = 0 + offset; columna < limiteColumnas + offset; columna++) { // Recorremos columnas
-        for (int fila = 0; fila < limiteFilas; fila++) { // Recorremos las filas de la columna
-            
-            // Pasamos de los 0 de relleno
-            if (chiquitos && fila >=4) {
-                    continue;
-                }
-            // Cogemos el valor del bit de la mariz
-            bool valor = (matriz[numero][columna - offset] >> fila) & 1;
-            
-            Serial.print(valor);
-            // Poner el valor en la matriz
-            mx.setPoint(columna, pos_x + fila, valor);
-        }
-        Serial.println();
+        if (chiquitos && fila < 4) continue; // Nos saltamos los bits vacios
+        byte valor = matriz[numero][columna - offset]; // Obtener valor de la columna actual
+        valor = (chiquitos && despl) ? (valor >>4) : valor; // Queremos coger solo los 4 bits con info
+
+        Serial.print(valor, BIN); // Mostrar valor en formato binario para debug
+        
+        // Poner el valor en la matriz
+        mx.setRow(pos_x, columna, valor);
     }
+    Serial.println(); // Nueva línea después de dibujar el numero
 }
 
 void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
@@ -237,16 +232,15 @@ void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
 
     // Mitad superior (decenas de segundos)
     int decenas_segundos = segundos / 10; // Decenas de segundos
-    ponerNumero(decenas_segundos,12,true,false);
+    ponerNumero(decenas_segundos,1,true,false);
 
     
     // Mitad inferior (unidades de segundos)
     int unidades_segundos = segundos % 10; // Unidades de segundos
-    ponerNumero(unidades_segundos,8,true,true);
+    ponerNumero(unidades_segundos,1,true,true);
     
-    // Mostrar minutos en la matriz, comenzando en la posicion 15
-    if (min_cambio){ponerNumero(minutos, 16);}
-
+    // Mostrar minutos en la matriz, comenzando en la posición 15
+    if (min_cambio){ponerNumero(minutos, 2);}
 }
 
 void vaciarMatriz() {
@@ -255,7 +249,7 @@ void vaciarMatriz() {
 */
     for (int x = 0; x < 32; x++) {
         for (int y = 0; y<8;y++){
-            mx.setPoint(y, x, 0); 
+            mx.setPoint(y, x, false); 
         }
     }
 }
@@ -265,7 +259,7 @@ void ponerPuntos(byte &puntaje1, byte &puntaje2) {
     puntaje1 = constrain(puntaje1, 0, 15);
     puntaje2 = constrain(puntaje2, 0, 15);
     // Copiar los puntos en la matriz
-    ponerNumero(puntaje1, 24);    // Puntaje jugador 1, posición 24
+    ponerNumero(puntaje1, 3);    // Puntaje jugador 1, posición 24
     ponerNumero(puntaje2, 0);     // Puntaje jugador 2, posición 0
 }
 
@@ -283,22 +277,27 @@ void cuentaAtras(){
     Actualiza el transcurso del tiempo del marcador
 */
     static unsigned long tiempo_previo = 0;
-    unsigned long tiempo_pasado = millis();
+    unsigned long tiempo_transcurrido = millis();
     const static long intervalo = 1000;
+    bool min_cambio;
 
-    if (segundos == 0 && minutos != 0){ // No es el ultimo minuto
-      segundos = 59;
-      minutos--;
+    if (segundos == 0 && minutos != 0){ // No es el ultimo minuto y se ha acabado el actual
+        segundos = 59;
+        minutos--;
+        min_cambio = true; // Aqui hay un fallo y nunca sale el 59!!!
+
     }else if(segundos == 0 && minutos == 0){ // Se ha acabado el tiempo
-      segundos = 0;
-      minutos = 0;
-    return;
+        segundos = 0;
+        minutos = 0;
+        return;
     }
 
-    if (tiempo_pasado - tiempo_previo >= intervalo) { // Ha pasado 1seg ?
-      tiempo_previo = tiempo_pasado;
-      segundos--;
+    if (tiempo_transcurrido - tiempo_previo >= intervalo) { // Ha pasado 1seg ?
+        tiempo_previo = tiempo_transcurrido;
+        segundos--;
+        min_cambio = false;
     }
+    ponerTiempo(minutos,segundos,min_cambio);
 }
 
 void resetTiempo(){
@@ -487,72 +486,72 @@ const byte numeros[16][8] = {
 const byte numeros_chiquitos[10][4] = {
     // Número 0
     {
-      0b00000110, 
-      0b00001001, 
-      0b00001001, 
-      0b00000110
+      0b01100000, 
+      0b10010000, 
+      0b10010000, 
+      0b01100000
     },
     // Número 1
     {
-        0b00000010,
-        0b00000110,
-        0b00000010,
-        0b00000111,
+        0b00100000,
+        0b01100000,
+        0b00100000,
+        0b01110000,
     },
     // Número 2
     {
-        0b00001110,
-        0b00000011,
-        0b00000100,
-        0b00001111
+        0b11100000,
+        0b00110000,
+        0b01000000,
+        0b11110000
     },
     // Número 3
     {
-        0b00001110,
-        0b00000011,
-        0b00000011,
-        0b00001110
+        0b11100000,
+        0b00110000,
+        0b00110000,
+        0b11100000
     },
     // Número 4
     {
-        0b00001010,
-        0b00001010,
-        0b00001111,
-        0b00000010
+        0b10100000,
+        0b10100000,
+        0b11110000,
+        0b00100000
     },
     // Número 5
     {
-        0b00000111,
-        0b00000100,
-        0b00000011,
-        0b00000111
+        0b01110000,
+        0b01000000,
+        0b00110000,
+        0b01110000
     },
     // Número 6
     {
-        0b00001110,
-        0b00001000,
-        0b00001110,
-        0b00001110
+        0b1110000,
+        0b1000000,
+        0b1110000,
+        0b1110000
     },
     // Número 7
     {
-        0b00001111,
-        0b00000010,
-        0b00000100,
-        0b00000100,
+        0b11110000,
+        0b00100000,
+        0b01000000,
+        0b01000000,
     },
     // Número 8
     {
-        0b00000110,
-        0b00001101,
-        0b00001011,
-        0b00000110
+        0b01100000,
+        0b11010000,
+        0b10110000,
+        0b01100000
     },
     // Número 9
     {
-        0b00000111,
-        0b00000111,
-        0b00000001,
-        0b00000111
+        0b01110000,
+        0b01110000,
+        0b00010000,
+        0b01110000
     }
 };
