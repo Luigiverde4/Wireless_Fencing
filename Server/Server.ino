@@ -28,6 +28,7 @@ struct UDPConnection {
           Tiempo
   primer_tiempo -> Momento en el que llega el 1er pck
   tienpo -> Momento en el que se recibe el pck 
+  diff_tiempo -> Diferencia de tiempo
   */
   unsigned long perdidos;
   unsigned long primer_id;
@@ -39,6 +40,7 @@ struct UDPConnection {
 
   unsigned long primer_tiempo;
   unsigned long tiempo;
+  unsigned long diff_tiempo;
 
   // Constructor
   UDPConnection(unsigned int p) : 
@@ -57,273 +59,7 @@ struct UDPConnection {
 UDPConnection connection1(4210);
 UDPConnection connection2(4211);
 
-void setup() {
-  Serial.begin(115200);
-  Serial.println("SERVIDOR UDP");
-
-  // Inicializamos la maquina
-  mx.begin();
-  mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
-  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
-  mx.clear();  
-
-  // Configuramos el ESP32 como Access Point
-  WiFi.softAP(ssid, password);
-
-  // Obtenemos la direccion IP del AP
-  IPAddress myIP = WiFi.softAPIP();
-  Serial.print("Direccion IP del AP: ");
-  Serial.println(myIP);
-
-  // Iniciamos los servidores UDP en los puertos correspondientes
-  connection1.udp.begin(connection1.port);
-  connection2.udp.begin(connection2.port);
-}
-
-void loop() {
-  // Primero que reciba paquetes
-  if (recibir_paquete(connection1) || recibir_paquete(connection2)){
-    // Trabajar con matriz de LEDs
-    ponerNumero(1,0);
-  }
-}
-
-// Funcion para recibir paquetes de una conexion UDP específica
-bool recibir_paquete(UDPConnection &conn) {
-  // Comprobamos si ha llegado algun paquete UDP
-  int packetSize = conn.udp.parsePacket();
-  if (packetSize) { // Tamaño paquete != 0 -> Hay paquete
-    int len = conn.udp.read(conn.incomingPacket, 255);
-    if (len > 0) { // Comprobamos si hay contenido en el paquete
-      conn.tiempo = millis();
-      conn.cont++; // Incrementamos el contador de paquetes recibidos
-      conn.incomingPacket[len] = 0; // Ponemos un 0 para poner fin al string
-      return analizar_paquete(conn);
-    }
-  }
-}
-
-// Funcion para analizar un paquete específico
-bool analizar_paquete(UDPConnection &conn) {
-/*
-    &conn: Objeto de comunicacion UDP
-    returns: 1 si ha cambiado el voltaje - 0 si NO ha cambiado el voltaje
-*/
-  // Extraer los datos del paquete
-  String idStr = obtener_dato(conn.incomingPacket, "ID"); // ID
-  conn.id = idStr.toInt();
-
-  if (conn.primera_vez) {
-    sincroReloj();
-    // Asignamos IDs
-    conn.cont = conn.id;
-    conn.primer_id = conn.id;
-
-    // Tomamos el tiempo de cuando se recibe el primer paquete
-    conn.primer_tiempo = conn.tiempo;
-    // Marcamos que ya no es la primera vez
-    conn.primera_vez = 0;
-  }
-
-  if (idStr.length() > 0) { // Si ha encontrado el ID
-    if (conn.id > conn.cont) { // Si hemos perdido paquetes
-      conn.perdidos += (conn.id - conn.cont); // Calculamos los paquetes perdidos
-    } 
-    conn.cont = conn.id; // Actualizamos el contador al ID del ultimo paquete recibido
-  }
-
-  // Porcentaje de paquetes perdidos
-  float porcentaje_perdidos = (float)conn.perdidos / (conn.cont - conn.primer_id) * 100.0;
-  // Tiempo transcurrido en segundos
-  float tiempo_transcurrido = (conn.tiempo - conn.primer_tiempo) / 1000.0;
-  // Paquetes Por Segundo (PPS)
-  float pps = (conn.cont - conn.primer_id) / tiempo_transcurrido;
-
-  Serial.printf("Puerto %d - Paquetes perdidos: %ld, TOTAL: %ld, PPS: %.2f, Porcentaje perdidos: %.2f%%\n", 
-                conn.port, conn.perdidos, conn.cont, pps, porcentaje_perdidos);
-
-  // Analizar voltaje
-  String voltajeStr = obtener_dato(conn.incomingPacket, "V"); // Voltaje
-  int voltaje_actual = voltajeStr.toInt();
-
-  // Si la ultima medicion es diferente a la medicion actual, actualizarla
-  if (conn.ultima_medicion != voltaje_actual) {
-    // Nuevo voltaje
-    conn.ultima_medicion = voltaje_actual;
-    // CODIGO PARA ANALIZAR SI ES TOCADO VALIDO
-    return 1;
-
-  } else {
-    // El voltaje no ha cambiado
-    return 0;
-  }
-}
-
-// Funcion para obtener un dato específico del paquete
-String obtener_dato(const char* packet, const char* clave) {
-    /*
-      Saca datos del mensaje enviado por UDP con Strings
-      packet: Contenido del paquete como cadena de caracteres
-      clave:  Dato que queremos sacar
-    */
-    String packetStr = String(packet);
-    String clave_a_encontrar = String(clave) + ": ";
-  
-    // Encuentra la posicion en la cadena packetStr donde comienza clave_a_encontrar.
-    int IndiceInicial = packetStr.indexOf(clave_a_encontrar);
-  
-    if (IndiceInicial != -1) { // Si clave_a_encontrar es encontrada
-        // Ajusta IndiceInicial para que apunte al comienzo del valor asociado a la clave.
-        IndiceInicial += clave_a_encontrar.length();
-      
-        // Encuentra la posicion del siguiente salto de línea
-        int IndiceFinal = packetStr.indexOf("\n", IndiceInicial);
-      
-        // Si no se encuentra el salto , pone IndiceFinal para que sea el final de la cadena.
-        if (IndiceFinal == -1) {
-            IndiceFinal = packetStr.length();
-        }   
-      
-        // Devuelve el substring que contiene el valor asociado a la clave.
-        return packetStr.substring(IndiceInicial, IndiceFinal);
-    }
-  
-    // Si la clave no esta en el paquete, return vacio.
-    return "";
-}
-
-// Reloj
-void sincroReloj() {
-  // Sincroniza el reloj con el cliente
-  Serial.println("Pendiente por hacer");
-}
-
-// FUNCIONES MAQUINA
-void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = false) {
-    /*
-        byte numero: numero a escribir en la matriz 
-        byte pos_x: posición en donde se escribe el numero
-        bool chiquitos: si es true, escribe numeros pequeños; si es false, escribe numeros grandes
-        bool despl: true - numero chiquito de abajo; false - no abajo
-    */
-    Serial.print("Numero: "); Serial.println(numero);
-    //Serial.print("Pos_x: "); Serial.println(pos_x);
-    
-    // VARIABLES VARIAS
-    int offset = despl ? 4 : 0; // Offset para los numeros pequeños de abajo
-    const int limiteColumnas = chiquitos ? 4 : 8; // Limite de columnas 
-    const int limiteFilas = 8; // Siempre 8 filas
-
-    // Escoger matriz correcta
-    const byte (*matriz)[limiteColumnas] = chiquitos ? numeros_chiquitos : numeros;
-
-    // Dibujar el numero en la matriz a partir de pos_x
-    for (int columna = 0 + offset; columna < limiteColumnas + offset; columna++) { // Recorremos columnas
-        byte valor = matriz[numero][columna - offset]; // Obtener valor de la columna actual
-        valor = (chiquitos && despl) ? (valor >>4) : valor; // Queremos coger solo los 4 bits con info
-
-        Serial.print(valor, BIN); // Mostrar valor en formato binario para debug
-        
-        // Poner el valor en la matriz
-        mx.setRow(pos_x, columna, valor);
-    }
-    Serial.println(); // Nueva línea después de dibujar el numero
-}
-
-void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
-/*
-    byte minutos: Cantidad de minutos restantes
-    byte segundos: Cantidad de segundos restantes
-    bool min_cambio: Si ha cambiado el minuto
-
-        Pone el tiempo del cronometro en la matriz
-*/
-    Serial.print("Segundos: ");Serial.println(segundos);
-
-    // Mitad superior (decenas de segundos)
-    int decenas_segundos = segundos / 10; // Decenas de segundos
-    ponerNumero(decenas_segundos,1,true,false);
-
-    
-    // Mitad inferior (unidades de segundos)
-    int unidades_segundos = segundos % 10; // Unidades de segundos
-    ponerNumero(unidades_segundos,1,true,true);
-    
-    // Mostrar minutos en la matriz, comenzando en la posición 15
-    if (min_cambio){ponerNumero(minutos, 2);}
-}
-
-void vaciarMatriz() {
-/*
-    Asigna los valores de las filas de cada columna a 0
-*/
-    for (int x = 0; x < 32; x++) {
-        for (int y = 0; y<8;y++){
-            mx.setPoint(y, x, false); 
-        }
-    }
-}
-
-// Manipular puntos
-void ponerPuntos(byte &puntaje1, byte &puntaje2) {
-/*
-    byte &puntaje1: Valor del puntaje global para el tirador 1
-    byte &puntaje2: Valor del puntaje global para el tirador 2  
-        
-        Pone los puntos a los tiradores y los limita entre 0 y 15 
-*/
-    puntaje1 = constrain(puntaje1, 0, 15);
-    puntaje2 = constrain(puntaje2, 0, 15);
-    // Copiar los puntos en la matriz
-    ponerNumero(puntaje1, 3);    // Puntaje jugador 1, posición 24
-    ponerNumero(puntaje2, 0);     // Puntaje jugador 2, posición 0
-}
-
-void resetPuntos(){
-/*
-    Resetea los puntos de los dos jugadores a 0
-*/
-  puntaje1 = 0;
-  puntaje2 = 0;
-}
-
-// Tiempo
-void cuentaAtras(){
-/*
-    Actualiza el transcurso del tiempo del marcador
-*/
-    static unsigned long tiempo_previo = 0;
-    unsigned long tiempo_transcurrido = millis();
-    const static long intervalo = 1000;
-    bool min_cambio;
-
-    if (segundos == 0 && minutos != 0){ // No es el ultimo minuto y se ha acabado el actual
-        segundos = 60;
-        minutos--;
-        min_cambio = true; // Aqui hay un fallo y nunca sale el 59!!!
-
-    }else if(segundos == 0 && minutos == 0){ // Se ha acabado el tiempo
-        segundos = 0;
-        minutos = 0;
-        return;
-    }
-
-    if (tiempo_transcurrido - tiempo_previo >= intervalo) { // Ha pasado 1seg ?
-        tiempo_previo = tiempo_transcurrido;
-        segundos--;
-        min_cambio = false;
-    }
-    ponerTiempo(minutos,segundos,min_cambio);
-}
-
-void resetTiempo(){
-/*
-    Resetea el tiempo a 3min y 0seg
-*/
-    minutos = 3;
-    segundos = 0;
-}
-
+// Matrices de numeros
 const byte numeros[16][8] = {
     // 0
     { 
@@ -571,3 +307,320 @@ const byte numeros_chiquitos[10][4] = {
         0b01110000
     }
 };
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("SERVIDOR UDP");
+
+  // Inicializamos la maquina
+  mx.begin();
+  mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
+  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
+  mx.clear();  
+
+  // Configuramos el ESP32 como Access Point
+  WiFi.softAP(ssid, password);
+
+  // Obtenemos la direccion IP del AP
+  IPAddress myIP = WiFi.softAPIP();
+  Serial.print("Direccion IP del AP: ");
+  Serial.println(myIP);
+
+  // Iniciamos los servidores UDP en los puertos correspondientes
+  connection1.udp.begin(connection1.port);
+  connection2.udp.begin(connection2.port);
+}
+
+void loop() {
+    // Contadores para comparar si ha llegado paquetes despues
+    unsigned long cont1 = connection1.cont;
+    unsigned long cont2 = connection2.cont;
+
+    // Si recibimos algun paquete de cualqueira de los dos
+    if (recibir_paquete(connection1) || recibir_paquete(connection2)) {
+        manejaTocados(connection1, cont1, connection2);
+        manejaTocados(connection2, cont2, connection1);
+    }
+}
+
+// Funcion para recibir paquetes de una conexion UDP específica
+bool recibir_paquete(UDPConnection &conn) {
+  // Comprobamos si ha llegado algun paquete UDP
+  int packetSize = conn.udp.parsePacket();
+  if (packetSize) { // Tamaño paquete != 0 -> Hay paquete
+    int len = conn.udp.read(conn.incomingPacket, 255);
+    if (len > 0) { // Comprobamos si hay contenido en el paquete
+      conn.tiempo = millis();
+      conn.cont++; // Incrementamos el contador de paquetes recibidos
+      conn.incomingPacket[len] = 0; // Ponemos un 0 para poner fin al string
+      return 1; // Hemos recibido paquete
+    }
+  }
+  return 0; // No hemos recibido un paquete
+}
+
+// Funcion para asignar valores del paquete y detectar si es la primera vez
+void tratar_paquete(UDPConnection conn){
+/*
+    &UDPConnection conn: Objeto de comunicacion UDP
+*/
+    // Guardamos la id
+    String idStr = obtener_dato(conn.incomingPacket, "ID"); // ID
+    conn.id = idStr.toInt();
+
+    // Vemos si es la primera vez que se conecta
+    if (conn.primera_vez) {
+        // Asignamos tiempos
+        conn.primer_tiempo = conn.tiempo;
+        conn.diff_tiempo = conn.primer_tiempo - millis();
+        // Asignamos IDs
+        conn.cont = conn.id;
+        conn.primer_id = conn.id;
+
+        conn.primera_vez = 0;
+        // Marcamos que ya no es la primera vez
+    }
+
+    // Analisis de perdidas
+    analizar_perdidas(conn,idStr); 
+}
+// Funcion para analizar un paquete específico
+void analizar_perdidas(UDPConnection &conn, String idStr) {
+/*
+    &conn: Objeto de comunicacion UDP
+    idStr: String de la id del conn
+      
+      Analiza la conexion y las perdidas
+*/
+  if (idStr.length() > 0) { // Si ha encontrado el ID
+    if (conn.id > conn.cont) { // Si hemos perdido paquetes
+      conn.perdidos += (conn.id - conn.cont); // Calculamos los paquetes perdidos
+    } 
+    conn.cont = conn.id; // Actualizamos el contador al ID del ultimo paquete recibido
+  }
+
+  // Porcentaje de paquetes perdidos
+  float porcentaje_perdidos = (float)conn.perdidos / (conn.cont - conn.primer_id) * 100.0;
+  // Tiempo transcurrido en segundos
+  float tiempo_transcurrido = (conn.tiempo - conn.primer_tiempo) / 1000.0;
+  // Paquetes Por Segundo (PPS)
+  float pps = (conn.cont - conn.primer_id) / tiempo_transcurrido;
+
+  Serial.printf("Puerto %d - Paquetes perdidos: %ld, TOTAL: %ld, PPS: %.2f, Porcentaje perdidos: %.2f%%\n", 
+                conn.port, conn.perdidos, conn.cont, pps, porcentaje_perdidos);
+}
+
+bool analizar_voltaje(UDPConnection &conn){
+/*
+    UDPConnection &conn: Comunicacion de la que analizar el voltaje
+      Devolver true si esta tocando y false si no
+*/
+    // Analizar voltaje
+    String voltajeStr = obtener_dato(conn.incomingPacket, "V"); // Voltaje
+    int voltaje_actual = voltajeStr.toInt();
+
+    // Si la ultima medicion es diferente a la medicion actual, actualizarla
+    if (conn.ultima_medicion != voltaje_actual) {
+      // Nuevo voltaje - SI esta habiendo un tocado
+      conn.ultima_medicion = voltaje_actual;
+      return 1;
+
+    } else {
+      // El voltaje no ha cambiado - NO esta habiendo un tocado
+      return 0;
+    }
+}
+
+// Funcion para los tocado
+void manejaTocados(UDPConnection &primario, unsigned long contaPre, UDPConnection &secundario) {
+    // Ha sido el paquete recibido de esta conexion?
+    if (contaPre != primario.cont) {
+        tratar_paquete(primario);
+        if (analizar_voltaje(primario)) {
+            // Hay tocado en esta conexion
+            manejaDobles(primario, secundario); // Miramos si hay un segundo tocado
+        }
+    }
+    // NO es esta conexion la que nos ha llegado el paquete de
+}
+
+// Funcion para los tocados dobles
+void manejaDobles(UDPConnection &principal, UDPConnection &contrario) {
+    // Durante el hueco de 300ms
+    while (millis() - principal.tiempo <= 300) {
+        if (recibir_paquete(contrario)) { // Escuchamos a ver si llegan paquetes del contrario
+            // LLega paquete del contrario
+            tratar_paquete(contrario);
+            if (analizar_voltaje(contrario)) {
+                // Hay doble tocado
+                return; // Salir de la funcion
+            }
+        }
+    }
+
+    // No hay doble tocado -  solo tocado principal
+}
+
+
+// Funcion para obtener un dato específico del paquete
+String obtener_dato(const char* packet, const char* clave) {
+    /*
+      Saca datos del mensaje enviado por UDP con Strings
+      packet: Contenido del paquete como cadena de caracteres
+      clave:  Dato que queremos sacar
+    */
+    String packetStr = String(packet);
+    String clave_a_encontrar = String(clave) + ": ";
+  
+    // Encuentra la posicion en la cadena packetStr donde comienza clave_a_encontrar.
+    int IndiceInicial = packetStr.indexOf(clave_a_encontrar);
+  
+    if (IndiceInicial != -1) { // Si clave_a_encontrar es encontrada
+        // Ajusta IndiceInicial para que apunte al comienzo del valor asociado a la clave.
+        IndiceInicial += clave_a_encontrar.length();
+      
+        // Encuentra la posicion del siguiente salto de línea
+        int IndiceFinal = packetStr.indexOf("\n", IndiceInicial);
+      
+        // Si no se encuentra el salto , pone IndiceFinal para que sea el final de la cadena.
+        if (IndiceFinal == -1) {
+            IndiceFinal = packetStr.length();
+        }   
+      
+        // Devuelve el substring que contiene el valor asociado a la clave.
+        return packetStr.substring(IndiceInicial, IndiceFinal);
+    }
+  
+    // Si la clave no esta en el paquete, return vacio.
+    return "";
+}
+
+
+
+
+
+// FUNCIONES MAQUINA
+void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = false) {
+    /*
+        byte numero: numero a escribir en la matriz 
+        byte pos_x: posición en donde se escribe el numero
+        bool chiquitos: si es true, escribe numeros pequeños; si es false, escribe numeros grandes
+        bool despl: true - numero chiquito de abajo; false - no abajo
+    */
+    Serial.print("Numero: "); Serial.println(numero);
+    //Serial.print("Pos_x: "); Serial.println(pos_x);
+    
+    // VARIABLES VARIAS
+    int offset = despl ? 4 : 0; // Offset para los numeros pequeños de abajo
+    const int limiteColumnas = chiquitos ? 4 : 8; // Limite de columnas 
+    const int limiteFilas = 8; // Siempre 8 filas
+
+    // Escoger matriz correcta
+    const byte (*matriz)[limiteColumnas] = chiquitos ? (const byte (*)[limiteColumnas])numeros_chiquitos : (const byte (*)[limiteColumnas])numeros;
+
+    // Dibujar el numero en la matriz a partir de pos_x
+    for (int columna = 0 + offset; columna < limiteColumnas + offset; columna++) { // Recorremos columnas
+        byte valor = matriz[numero][columna - offset]; // Obtener valor de la columna actual
+        valor = (chiquitos && despl) ? (valor >>4) : valor; // Queremos coger solo los 4 bits con info
+
+        Serial.print(valor, BIN); // Mostrar valor en formato binario para debug
+        
+        // Poner el valor en la matriz
+        mx.setRow(pos_x, columna, valor);
+    }
+    Serial.println(); // Nueva línea después de dibujar el numero
+}
+
+void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
+/*
+    byte minutos: Cantidad de minutos restantes
+    byte segundos: Cantidad de segundos restantes
+    bool min_cambio: Si ha cambiado el minuto
+
+        Pone el tiempo del cronometro en la matriz
+*/
+    Serial.print("Segundos: ");Serial.println(segundos);
+
+    // Mitad superior (decenas de segundos)
+    int decenas_segundos = segundos / 10; // Decenas de segundos
+    ponerNumero(decenas_segundos,1,true,false);
+
+    
+    // Mitad inferior (unidades de segundos)
+    int unidades_segundos = segundos % 10; // Unidades de segundos
+    ponerNumero(unidades_segundos,1,true,true);
+    
+    // Mostrar minutos en la matriz, comenzando en la posición 15
+    if (min_cambio){ponerNumero(minutos, 2);}
+}
+
+void vaciarMatriz() {
+/*
+    Asigna los valores de las filas de cada columna a 0
+*/
+    for (int x = 0; x < 32; x++) {
+        for (int y = 0; y<8;y++){
+            mx.setPoint(y, x, false); 
+        }
+    }
+}
+
+// Manipular puntos
+void ponerPuntos(byte &puntaje1, byte &puntaje2) {
+/*
+    byte &puntaje1: Valor del puntaje global para el tirador 1
+    byte &puntaje2: Valor del puntaje global para el tirador 2  
+        
+        Pone los puntos a los tiradores y los limita entre 0 y 15 
+*/
+    puntaje1 = constrain(puntaje1, 0, 15);
+    puntaje2 = constrain(puntaje2, 0, 15);
+    // Copiar los puntos en la matriz
+    ponerNumero(puntaje1, 3);    // Puntaje jugador 1, posición 24
+    ponerNumero(puntaje2, 0);     // Puntaje jugador 2, posición 0
+}
+
+void resetPuntos(){
+/*
+    Resetea los puntos de los dos jugadores a 0
+*/
+  puntaje1 = 0;
+  puntaje2 = 0;
+}
+
+// Tiempo
+void cuentaAtras(){
+/*
+    Actualiza el transcurso del tiempo del marcador
+*/
+    static unsigned long tiempo_previo = 0;
+    unsigned long tiempo_transcurrido = millis();
+    const static long intervalo = 1000;
+    bool min_cambio;
+
+    if (segundos == 0 && minutos != 0){ // No es el ultimo minuto y se ha acabado el actual
+        segundos = 60;
+        minutos--;
+        min_cambio = true; // Aqui hay un fallo y nunca sale el 59!!!
+
+    }else if(segundos == 0 && minutos == 0){ // Se ha acabado el tiempo
+        segundos = 0;
+        minutos = 0;
+        return;
+    }
+
+    if (tiempo_transcurrido - tiempo_previo >= intervalo) { // Ha pasado 1seg ?
+        tiempo_previo = tiempo_transcurrido;
+        segundos--;
+        min_cambio = false;
+    }
+    ponerTiempo(minutos,segundos,min_cambio);
+}
+
+void resetTiempo(){
+/*
+    Resetea el tiempo a 3min y 0seg
+*/
+    minutos = 3;
+    segundos = 0;
+}
