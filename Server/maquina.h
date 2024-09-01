@@ -14,6 +14,12 @@
 #define IR_RECEIVE_PIN 12
 #define IR_USE_AVR_TIMER5
 
+/*
+MOSI: 23
+MISO: 19
+SCK: 18
+SS: 5
+*/
 // Funciones para manipulación de la matriz y puntuaciones
 void ponerNumero(int numero, int pos_x);
 void ponerPuntos(int puntaje1, int puntaje2);
