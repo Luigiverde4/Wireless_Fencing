@@ -90,13 +90,19 @@ void WiFiEvent(WiFiEvent_t event) {
 void enviar_datos() {
   // Enviar el tiempo actual al servidor
   udp.beginPacket(IPAddress(192, 168, 4, 1), udpPort);
-  udp.printf("ID: %lu\nTICK:%lu\nV:%d\r",id++,millis(),0); // \nRSSI: %ld dbm,WiFi.RSSI()
+  udp.printf("ID: %lu\nTICK:%lu\nV0:%d\nV0:%d\r",id++,millis(),0,0); // \nRSSI: %ld dbm,WiFi.RSSI()
   udp.endPacket();
   // Serial.println("Paquete enviado");
 }
+/*
+ID: Nº de pck enviado
+Tick - Tiempo en el que se envia
+V0: Voltaje de vuelta del florete (Cable C) - Normalmente = X , Tocado = 0
+V1: Voltaje de la chaquetilla (Cable A) - Normalmente = 0, Tocado = X
+*/
 
-
-// Traductores para debug
+// Traductores para debug 
+/*
 const char* traduce_status(int status) {
     switch (status) {
         case WL_NO_SHIELD: return "WL_NO_SHIELD";
@@ -141,3 +147,4 @@ const char* traduce_WiFiEvent(int event) {
         default: return "UNKNOWN_EVENT";
     }
 }
+*/

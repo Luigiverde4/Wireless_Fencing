@@ -23,7 +23,9 @@ struct UDPConnection {
   primer_id -> ID del 1er pck que llega
   id -> ID del paquete recibido
   cont -> Contador de los pck recibidos
-  ultima_medicion -> Ultimo valor registrado de voltaje
+  ultima_medicion_V0 -> Ultimo valor registrado del voltaje del florete V0
+  ultima_medicion_V1 -> Ultimo valor registrado del voltaje de la chaquetilla V1
+
   primera_vez -> T/F de si es la primera vez que se conecta
           Tiempo
   primer_tiempo -> Momento en el que llega el 1er pck
@@ -35,7 +37,8 @@ struct UDPConnection {
   unsigned long id;
   unsigned long cont;
 
-  unsigned int ultima_medicion;
+  unsigned int ultima_medicion_V0;
+  unsigned int ultima_medicion_V1;
   bool primera_vez;
 
   unsigned long primer_tiempo;
@@ -359,6 +362,24 @@ bool recibir_paquete(UDPConnection &conn) {
   return 0; // No hemos recibido un paquete
 }
 
+// Funcion para los tocados
+void manejaTocados(UDPConnection &principal, unsigned long contaPre, UDPConnection &secundario) {
+    // Ha sido el paquete recibido de esta conexion?
+    if (contaPre != principal.cont) {
+        tratar_paquete(principal);
+        if (detectar_tocado(principal)) {
+            // Hay tocado en esta conexion
+            // Blanco o valido?
+            tocadoValido(principal,secundario);
+
+            // Unico o doble?
+            manejaDobles(principal,secundario);
+        }
+    }
+    // NO es esta conexion la que nos ha llegado el paquete de
+}
+
+
 // Funcion para asignar valores del paquete y detectar si es la primera vez
 void tratar_paquete(UDPConnection conn){
 /*
@@ -410,49 +431,56 @@ void analizar_perdidas(UDPConnection &conn, String idStr) {
                 conn.port, conn.perdidos, conn.cont, pps, porcentaje_perdidos);
 }
 
-bool analizar_voltaje(UDPConnection &conn){
+// Funcion para detectar si esta habiendo un tocado
+bool detectar_tocado(UDPConnection &conn){
 /*
     UDPConnection &conn: Comunicacion de la que analizar el voltaje
       Devolver true si esta tocando y false si no
 */
     // Analizar voltaje
-    String voltajeStr = obtener_dato(conn.incomingPacket, "V"); // Voltaje
+    String voltajeStr = obtener_dato(conn.incomingPacket, "V0"); // Voltaje florete
     int voltaje_actual = voltajeStr.toInt();
-
-    // Si la ultima medicion es diferente a la medicion actual, actualizarla
-    if (conn.ultima_medicion != voltaje_actual) {
-      // Nuevo voltaje - SI esta habiendo un tocado
-      conn.ultima_medicion = voltaje_actual;
-      return 1;
-
-    } else {
-      // El voltaje no ha cambiado - NO esta habiendo un tocado
-      return 0;
+    conn.ultima_medicion = voltaje_actual;
+            
+    // Si el voltaje actual es 0, el boton esta presionado y esta abierto el circuito -> V = 0
+    if (voltaje_actual == 0) {
+        return 1;
+    } else { // El boton esta abierto, no esta habiendo tocado
+        return 0;
     }
 }
 
-// Funcion para los tocado
-void manejaTocados(UDPConnection &primario, unsigned long contaPre, UDPConnection &secundario) {
-    // Ha sido el paquete recibido de esta conexion?
-    if (contaPre != primario.cont) {
-        tratar_paquete(primario);
-        if (analizar_voltaje(primario)) {
-            // Hay tocado en esta conexion
-            manejaDobles(primario, secundario); // Miramos si hay un segundo tocado
-        }
+// Funcion para detectar si un tocado es valido
+bool tocadoValido(UDPConnection &principal, UDPConnection &secundario){
+/*
+    principal: Conexion UDP del que esta tocando
+    secundario Conexion UDP del que esta siendo tocado
+
+    **TIENE QUE ESTAR PASANDO AL MISMO TIEMPO***
+*/
+    // Si el florete de uno da tocado y el otro recibe por tierra el tocado
+    if (principal.ultima_medicion_V0 == 0 && secundario.ultima_medicion_V1 != 0){
+        // TOCADO VALIDO
+        return 1;
+    }else{
+        // TOCADO NO VALIDO
+        return 0;
     }
-    // NO es esta conexion la que nos ha llegado el paquete de
+    // Si esta el V0J1 y el V1J2 -> Valido
+    // Si esta el V0J1 y no e V1J2 -> No Valido
 }
 
 // Funcion para los tocados dobles
-void manejaDobles(UDPConnection &principal, UDPConnection &contrario) {
+void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
     // Durante el hueco de 300ms
     while (millis() - principal.tiempo <= 300) {
-        if (recibir_paquete(contrario)) { // Escuchamos a ver si llegan paquetes del contrario
+        if (recibir_paquete(secundario)) { // Escuchamos a ver si llegan paquetes del secundario
             // LLega paquete del contrario
-            tratar_paquete(contrario);
-            if (analizar_voltaje(contrario)) {
+            tratar_paquete(secundario);
+            if (detectar_tocado(secundario)) { // Usamos el voltaje del florete como detector de tocado
                 // Hay doble tocado
+                // Blanco o valido?
+                tocadoValido(secundario,principal); // Hay que pasarlo del reves ya que estamos detectando al reves
                 return; // Salir de la funcion
             }
         }
@@ -460,7 +488,6 @@ void manejaDobles(UDPConnection &principal, UDPConnection &contrario) {
 
     // No hay doble tocado -  solo tocado principal
 }
-
 
 // Funcion para obtener un dato específico del paquete
 String obtener_dato(const char* packet, const char* clave) {
