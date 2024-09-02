@@ -54,7 +54,8 @@ struct UDPConnection {
   tiempo(0),
   id(1), 
   cont(1), 
-  ultima_medicion(0),
+  ultima_medicion_V0(0),
+  ultima_medicion_V1(0),
   primera_vez(1) {}
 };
 

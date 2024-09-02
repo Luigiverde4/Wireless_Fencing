@@ -115,7 +115,7 @@ const char* traduce_status(int status) {
         case WL_DISCONNECTED:return "WL_DISCONNECTED";
         default:return "EN EL DEFAULT";
     }
-}
+}*/
 
 const char* traduce_WiFiEvent(int event) {
     switch (event) {
@@ -147,4 +147,3 @@ const char* traduce_WiFiEvent(int event) {
         default: return "UNKNOWN_EVENT";
     }
 }
-*/
