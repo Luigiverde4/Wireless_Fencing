@@ -440,7 +440,7 @@ bool detectar_tocado(UDPConnection &conn){
     // Analizar voltaje
     String voltajeStr = obtener_dato(conn.incomingPacket, "V0"); // Voltaje florete
     int voltaje_actual = voltajeStr.toInt();
-    conn.ultima_medicion = voltaje_actual;
+    conn.ultima_medicion_V0 = voltaje_actual;
             
     // Si el voltaje actual es 0, el boton esta presionado y esta abierto el circuito -> V = 0
     if (voltaje_actual == 0) {

@@ -12,6 +12,7 @@
             "intelliSenseMode": "gcc-x64",
             "includePath": [
                 "C:\\Users\\luigi\\Documents\\Wireless_Fencing\\Server",
+                "C:\\Users\\luigi\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp32-arduino-libs\\idf-release_v5.1-b6b4727c58\\esp32\\dio_qspi\\include",
                 "C:\\Users\\luigi\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.0.4\\cores\\esp32",
                 "C:\\Users\\luigi\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.0.4\\variants\\doitESP32devkitV1",
                 "C:\\Users\\luigi\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.0.4\\libraries\\WiFi\\src",
