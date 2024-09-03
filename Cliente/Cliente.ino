@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include <config.h>
 
-// #define IZQ
-#define DER
+#define IZQ
+// #define DER
 
 // Datos conexion
 const char* IPserver = "192.168.4.1";
@@ -16,7 +16,7 @@ WiFiUDP udp;
 int udpPort = 4210;  // int para modificar 
 
 void setup() {
-  Serial.begin(115200);
+  //Serial.begin(115200);
   Serial.println("CLIENTE");
 
   // Conectar al WiFi
@@ -45,7 +45,7 @@ void loop() {
   // Serial.println(traduce_status(WiFi.status()));
   // Comprobamos la conexion a WiFi
   if (WiFi.status() != WL_CONNECTED) { // Si el estado NO es conectado
-      Serial.println("Estado: NO conectado al WiFi");
+      //Serial.println("Estado: NO conectado al WiFi");
       connectToWiFi(ssid, password); // Nos conectamos al wifi
   }
   enviar_datos();
@@ -58,7 +58,7 @@ void connectToWiFi(const char *ssid, const char *pwd) {
     ssid: Nombre del wifi
     pwd: Contrasenya del wifi
   */
-  Serial.println("Conectando a WiFi : " + String(ssid));
+  //Serial.println("Conectando a WiFi : " + String(ssid));
   WiFi.disconnect(true);  // Desconectamos del wifi anterior
   WiFi.onEvent(WiFiEvent); // Detectamos si nos hemos conectado
   WiFi.begin(ssid, pwd);  // Iniciamos WiFi
@@ -70,19 +70,19 @@ void WiFiEvent(WiFiEvent_t event) {
     Lidiar con los WiFiEvents
     event: Evento WiFI que tratar con
   */
-  Serial.printf("En WiFiEvent: %d\n", event);
+  //Serial.printf("En WiFiEvent: %d\n", event);
   switch (event) {
     case 16: // SYSTEM_EVENT_STA_GOT_IP
-      Serial.printf("Conectado a WiFi! Direccion IP: %s\n", WiFi.localIP().toString().c_str());
+      //Serial.printf("Conectado a WiFi! Direccion IP: %s\n", WiFi.localIP().toString().c_str());
       connected = true;
       break;
     case 17: // SYSTEM_EVENT_STA_DISCONNECTED
-      Serial.println("Perdida conexion WiFi");
+      //Serial.println("Perdida conexion WiFi");
       connected = false;
       break;
     default: // El default
       id = 1;
-      Serial.printf("Otro evento: %s\n", traduce_WiFiEvent(event));
+      //Serial.printf("Otro evento: %s\n", traduce_WiFiEvent(event));
       break;
   }
 }
@@ -90,7 +90,7 @@ void WiFiEvent(WiFiEvent_t event) {
 void enviar_datos() {
   // Enviar el tiempo actual al servidor
   udp.beginPacket(IPAddress(192, 168, 4, 1), udpPort);
-  udp.printf("ID:%lu\nTICK:%lu\nV0:%d\nV1:%d\r",id++,millis(),0,0); // \nRSSI: %ld dbm,WiFi.RSSI()
+  udp.printf("ID:%lu\nTICK:%lu\nV0:%d\nV1:%d\r",id++,millis(),0,10); // \nRSSI: %ld dbm,WiFi.RSSI()
   udp.endPacket();
   // Serial.println("Paquete enviado");
 }
@@ -115,7 +115,7 @@ const char* traduce_status(int status) {
         case WL_DISCONNECTED:return "WL_DISCONNECTED";
         default:return "EN EL DEFAULT";
     }
-}*/
+}
 
 const char* traduce_WiFiEvent(int event) {
     switch (event) {
@@ -147,3 +147,4 @@ const char* traduce_WiFiEvent(int event) {
         default: return "UNKNOWN_EVENT";
     }
 }
+*/

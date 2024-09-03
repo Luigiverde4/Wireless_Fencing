@@ -1,8 +1,8 @@
 {
     "configuration": "FlashFreq=80,UploadSpeed=921600,DebugLevel=none,EraseFlash=none",
     "board": "esp32:esp32:esp32doit-devkit-v1",
-    "sketch": "Cliente\\Cliente.ino",
-    "port": "COM4",
+    "sketch": "Server\\Server.ino",
+    "port": "COM3",
     "programmer": "esptool",
     "output": "output"
 }

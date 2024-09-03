@@ -317,10 +317,10 @@ void setup() {
   Serial.println("SERVIDOR UDP");
 
   // Inicializamos la maquina
-  mx.begin();
-  mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
-  mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
-  mx.clear();  
+//   mx.begin();
+//   mx.control(MD_MAX72XX::INTENSITY, MAX_INTENSITY / 2);
+//   mx.control(MD_MAX72XX::UPDATE, MD_MAX72XX::ON);
+//   mx.clear();  
 
   // Configuramos el ESP32 como Access Point
   WiFi.softAP(ssid, password);
@@ -335,15 +335,20 @@ void setup() {
   connection2.udp.begin(connection2.port);
 }
 
+//Flags de si han llegados paquetes
+bool actualizado1;
+bool actualizado2;
 void loop() {
-    // Contadores para comparar si ha llegado paquetes despues
-    unsigned long cont1 = connection1.cont;
-    unsigned long cont2 = connection2.cont;
+    // Actualizamos las conexiones de si han llegados paquetes 
+    actualizado1 = recibir_paquete(connection1);
+    actualizado2 = recibir_paquete(connection2);
 
-    // Si recibimos algun paquete de cualqueira de los dos
-    if (recibir_paquete(connection1) || recibir_paquete(connection2)) {
-        manejaTocados(connection1, cont1, connection2);
-        manejaTocados(connection2, cont2, connection1);
+    // Procesar los paquetes si hay actualizaciones
+    if (actualizado1) { 
+        manejaTocados(connection1, connection2);
+    }
+    if (actualizado2) {
+        manejaTocados(connection2, connection1);
     }
 
     // switch(){case} Switch case para el infrarrojo
@@ -354,6 +359,7 @@ void loop() {
 
 // Funcion para recibir paquetes de una conexion UDP específica
 bool recibir_paquete(UDPConnection &conn) {
+  //Serial.println("Recibir paquete");
   // Comprobamos si ha llegado algun paquete UDP
   int packetSize = conn.udp.parsePacket();
   if (packetSize) { // Tamaño paquete != 0 -> Hay paquete
@@ -369,28 +375,31 @@ bool recibir_paquete(UDPConnection &conn) {
 }
 
 // Funcion para los tocados
-void manejaTocados(UDPConnection &principal, unsigned long contaPre, UDPConnection &secundario) {
-    // Ha sido el paquete recibido de esta conexion?
-    if (contaPre != principal.cont) {
-        tratar_paquete(principal);
-        if (detectar_tocado(principal)) {
-            // Hay tocado en esta conexion
-            // Blanco o valido?
-            tocadoValido(principal,secundario);
+void manejaTocados(UDPConnection &principal, UDPConnection &secundario) {
+    Serial.printf("Maneja Tocados: %u\n", principal.port);
 
-            // Unico o doble?
-            manejaDobles(principal,secundario);
-        }
+    tratar_paquete(principal);
+    if (detectar_tocado(principal)) {
+        // Hay tocado en esta conexion
+        // Blanco o valido?
+        tocadoValido(principal,secundario);
+
+        // Unico o doble?
+        manejaDobles(principal,secundario);
     }
+
     // NO es esta conexion la que nos ha llegado el paquete de
 }
 
 
 // Funcion para asignar valores del paquete y detectar si es la primera vez
-void tratar_paquete(UDPConnection conn){
+void tratar_paquete(UDPConnection &conn){
+    Serial.println("Tratar paquete");
 /*
     &UDPConnection conn: Objeto de comunicacion UDP
 */
+
+    // A FUTURO MOVER ESTO A RECIBIR PAQUETE Y DEJAR SOLO EL IF
     // Buffer para almacenar el ID
     char idStr[16];  // Suponiendo que el ID no superará los 15 caracteres + '\0'
 
@@ -409,15 +418,18 @@ void tratar_paquete(UDPConnection conn){
         conn.cont = conn.id;
         conn.primer_id = conn.id;
 
-        conn.primera_vez = 0;
+        conn.primera_vez = false;
         // Marcamos que ya no es la primera vez
     }
 
     // Analisis de perdidas
-    analizar_perdidas(conn,idStr); 
+    //analizar_perdidas(conn,idStr); 
 }
+
 // Funcion para analizar un paquete específico
 void analizar_perdidas(UDPConnection &conn, String idStr) {
+        Serial.println("Analizar perdidas");
+
 /*
     &conn: Objeto de comunicacion UDP
     idStr: String de la id del conn
@@ -444,6 +456,7 @@ void analizar_perdidas(UDPConnection &conn, String idStr) {
 
 // Funcion para detectar si esta habiendo un tocado
 bool detectar_tocado(UDPConnection &conn){
+    Serial.println("Detectar Tocado");
 /*
     UDPConnection &conn: Comunicacion de la que analizar el voltaje
       Devolver true si esta tocando y false si no
@@ -457,17 +470,20 @@ bool detectar_tocado(UDPConnection &conn){
     // Convertir el voltaje a int
     int voltaje_actual = atoi(voltajeStr);
     conn.ultima_medicion_V0 = voltaje_actual;
-            
     // Si el voltaje actual es 0, el boton esta presionado y esta abierto el circuito -> V = 0
     if (voltaje_actual == 0) {
+        Serial.println("Esta habiendo tocado");
         return 1;
     } else { // El boton esta abierto, no esta habiendo tocado
+        Serial.println("No Esta habiendo tocado");
         return 0;
     }
 }
 
 // Funcion para detectar si un tocado es valido
 bool tocadoValido(UDPConnection &principal, UDPConnection &secundario){
+    Serial.println("Tocado Valido");
+
 /*
     principal: Conexion UDP del que esta tocando
     secundario Conexion UDP del que esta siendo tocado
@@ -486,10 +502,42 @@ bool tocadoValido(UDPConnection &principal, UDPConnection &secundario){
     // Si esta el V0J1 y no e V1J2 -> No Valido
 }
 
-// Funcion para los tocados dobles
+
+
+// Funcion para manejar tocados dobles
 void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
-    // Durante el hueco de 300ms
-    while (millis() - principal.tiempo <= 300) {
+    Serial.println("Maneja Dobles");
+
+    // Coger la flag correcta
+    bool flag_actualizado = (principal.port == 4210) ? actualizado1 : actualizado2;
+
+    // Verificar si necesitamos paquetes nuevos o tenemos paquetes recientes
+    if (flag_actualizado) {
+        unsigned long tiempo_diff = (principal.tiempo > secundario.tiempo)  // Vemos cual es mas grande
+                                    ? principal.tiempo - secundario.tiempo 
+                                    : secundario.tiempo - principal.tiempo;
+        if (tiempo_diff <= 300) { 
+            // Tenemos paquete suficientemente reciente
+            tratar_paquete(secundario);
+            
+            if (detectar_tocado(secundario)) { // Usamos el voltaje del florete como detector de tocado
+                // Hay doble tocado
+                // Blanco o valido?
+                tocadoValido(secundario, principal); // Hay que pasarlo del reves ya que estamos detectando al reves
+                return; // Salir de la función
+            }
+            // No hay doble tocado - solo tocado principal
+        } else {
+            // Necesitamos paquetes mas recientes aunque tengamos ya
+            pedir_paquetes(principal, secundario);
+        }
+    } else {
+        // Necesitamos paquetes
+        pedir_paquetes(principal, secundario);
+    }
+}
+void pedir_paquetes(UDPConnection &principal, UDPConnection &secundario){
+    while (millis() - principal.tiempo <= 300){ // Durante los 300ms de ventana escuchar paquetes
         if (recibir_paquete(secundario)) { // Escuchamos a ver si llegan paquetes del secundario
             // LLega paquete del contrario
             tratar_paquete(secundario);
@@ -500,13 +548,14 @@ void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
                 return; // Salir de la funcion
             }
         }
+        // No hay doble tocado -  solo tocado principal
     }
-
-    // No hay doble tocado -  solo tocado principal
 }
 
 // Funcion para obtener un dato específico del paquete usando char[]
 void obtener_dato(const char* packet, const char* clave, char* valor, size_t maxLen) {
+    Serial.println("Obtener dato");
+
 /*
       
       packet: Contenido del paquete como cadena de caracteres
