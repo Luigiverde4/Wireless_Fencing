@@ -401,7 +401,7 @@ void tratar_paquete(UDPConnection &conn){
 
     // A FUTURO MOVER ESTO A RECIBIR PAQUETE Y DEJAR SOLO EL IF
     // Buffer para almacenar el ID
-    char idStr[16];  // Suponiendo que el ID no superará los 15 caracteres + '\0'
+    char idStr[16];  // Suponiendo que el ID no superara los 15 caracteres + '\0'
 
     // Obtener el valor del ID
     obtener_dato(conn.incomingPacket, "ID:", idStr, sizeof(idStr));
@@ -617,7 +617,7 @@ void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = f
         // Poner el valor en la matriz
         mx.setRow(pos_x, columna, valor);
     }
-    Serial.println(); // Nueva línea después de dibujar el numero
+    Serial.println(); // Nueva línea despues de dibujar el numero
 }
 
 void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
