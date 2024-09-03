@@ -21,11 +21,11 @@ SCK: 18
 SS: 5
 */
 // Funciones para manipulación de la matriz y puntuaciones
-void ponerNumero(int numero, int pos_x);
-void ponerPuntos(int puntaje1, int puntaje2);
+void ponerNumero(byte numero, byte pos_x, bool chiquitos, bool despl);
+void ponerTiempo(byte minutos, byte segundos, bool min_cambio);
 void ponerTiempo(int minutos, int segundos);
 void vaciarMatriz();
-void manipularPunto(int jugador, int cambio);
+void ponerPuntos(byte &puntaje1, byte &puntaje2);
 void resetPuntos();
 void cuentaAtras();
 void resetTiempo();

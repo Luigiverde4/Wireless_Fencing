@@ -7,7 +7,7 @@ byte puntaje1 = 0;
 byte puntaje2 = 0;
 byte minutos = 3;
 byte segundos = 0;
-
+bool tiempo_maquina = false;
 // Datos WiFi
 const char* ssid = "ESP32_Server";
 const char* password = "12345678";
@@ -345,6 +345,11 @@ void loop() {
         manejaTocados(connection1, cont1, connection2);
         manejaTocados(connection2, cont2, connection1);
     }
+
+    // switch(){case} Switch case para el infrarrojo
+    if (tiempo_maquina){
+        cuentaAtras();
+    }
 }
 
 // Funcion para recibir paquetes de una conexion UDP específica
@@ -386,9 +391,14 @@ void tratar_paquete(UDPConnection conn){
 /*
     &UDPConnection conn: Objeto de comunicacion UDP
 */
-    // Guardamos la id
-    String idStr = obtener_dato(conn.incomingPacket, "ID"); // ID
-    conn.id = idStr.toInt();
+    // Buffer para almacenar el ID
+    char idStr[16];  // Suponiendo que el ID no superará los 15 caracteres + '\0'
+
+    // Obtener el valor del ID
+    obtener_dato(conn.incomingPacket, "ID:", idStr, sizeof(idStr));
+
+    // Convertir el ID a int
+    conn.id = atoi(idStr);
 
     // Vemos si es la primera vez que se conecta
     if (conn.primera_vez) {
@@ -438,9 +448,14 @@ bool detectar_tocado(UDPConnection &conn){
     UDPConnection &conn: Comunicacion de la que analizar el voltaje
       Devolver true si esta tocando y false si no
 */
+    // Buffer para almacenar el valor de voltaje
+    char voltajeStr[16];  // Suponiendo que el voltaje no supera los 15 caracteres + \0
+
     // Analizar voltaje
-    String voltajeStr = obtener_dato(conn.incomingPacket, "V0"); // Voltaje florete
-    int voltaje_actual = voltajeStr.toInt();
+    obtener_dato(conn.incomingPacket, "V0:", voltajeStr, sizeof(voltajeStr));
+
+    // Convertir el voltaje a int
+    int voltaje_actual = atoi(voltajeStr);
     conn.ultima_medicion_V0 = voltaje_actual;
             
     // Si el voltaje actual es 0, el boton esta presionado y esta abierto el circuito -> V = 0
@@ -490,39 +505,36 @@ void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
     // No hay doble tocado -  solo tocado principal
 }
 
-// Funcion para obtener un dato específico del paquete
-String obtener_dato(const char* packet, const char* clave) {
-    /*
-      Saca datos del mensaje enviado por UDP con Strings
+// Funcion para obtener un dato específico del paquete usando char[]
+void obtener_dato(const char* packet, const char* clave, char* valor, size_t maxLen) {
+/*
+      
       packet: Contenido del paquete como cadena de caracteres
       clave:  Dato que queremos sacar
-    */
-    String packetStr = String(packet);
-    String clave_a_encontrar = String(clave) + ": ";
-  
-    // Encuentra la posicion en la cadena packetStr donde comienza clave_a_encontrar.
-    int IndiceInicial = packetStr.indexOf(clave_a_encontrar);
-  
-    if (IndiceInicial != -1) { // Si clave_a_encontrar es encontrada
-        // Ajusta IndiceInicial para que apunte al comienzo del valor asociado a la clave.
-        IndiceInicial += clave_a_encontrar.length();
-      
-        // Encuentra la posicion del siguiente salto de línea
-        int IndiceFinal = packetStr.indexOf("\n", IndiceInicial);
-      
-        // Si no se encuentra el salto , pone IndiceFinal para que sea el final de la cadena.
-        if (IndiceFinal == -1) {
-            IndiceFinal = packetStr.length();
-        }   
-      
-        // Devuelve el substring que contiene el valor asociado a la clave.
-        return packetStr.substring(IndiceInicial, IndiceFinal);
-    }
-  
-    // Si la clave no esta en el paquete, return vacio.
-    return "";
-}
+      valor: Es el valor que devolvemos de la funcion
+      maxLen: Longitud maxima del valor que vamos a devolver
 
+      Saca datos del mensaje enviado por UDP con char[], si no lo encuentra el valor sera \0
+*/
+     // Busca en el paquete la clave y apunta al principio del valor, si no lo encuentra es NULL
+    char* inicio = strstr(packet, clave);
+    if (inicio == NULL) { // Si NO encuentra la clave en el paquete
+        valor[0] = '\0'; // Devolvemos una cadena vacia
+    } else {
+        inicio += strlen(clave);
+        char* fin = strstr(inicio, "\n"); // Buscamos el primer salto de linea desde el incio (cogemos todo el valor)
+        
+        if (fin == NULL) {  // Si no lo encuentra, es que es el ultimo y se acaba el paquete
+            fin = inicio + strlen(inicio); // Coge toda la cadena
+        }
+
+        size_t len = fin - inicio; // Longitud del valor
+        if (len >= maxLen){len = maxLen - 1;} // Si es mas largo que el maximos -1 (para meter \0), lo forzamos a ese tamaño y dejamos hueco para \0
+        
+        strncpy(valor, inicio, len); // Copiamos en valor desde inicio una distancia len
+        valor[len] = '\0';          // Ponemos el 0 al final para cerrar la cadena
+    }
+}
 
 
 
