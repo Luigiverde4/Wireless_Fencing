@@ -9,6 +9,15 @@ const char* IPserver = "192.168.4.1";
 int status = WL_IDLE_STATUS;
 unsigned long int id = 1;
 
+/*
+ID: Nº de pck enviado
+Tick - Tiempo en el que se envia
+V0: Voltaje de vuelta del florete (Cable C) - Normalmente = X , Tocado = 0
+V1: Voltaje de la chaquetilla (Cable A) - Normalmente = 0, Tocado = X
+*/
+
+int V0 = 0;
+int V1 = 10;
 // Flags
 boolean connected = false;
 // UDP
@@ -90,7 +99,7 @@ void WiFiEvent(WiFiEvent_t event) {
 void enviar_datos() {
   // Enviar el tiempo actual al servidor
   udp.beginPacket(IPAddress(192, 168, 4, 1), udpPort);
-  udp.printf("ID:%lu\nTICK:%lu\nV0:%d\nV1:%d\r",id++,millis(),0,10); // \nRSSI: %ld dbm,WiFi.RSSI()
+  udp.printf("ID:%lu\nTICK:%lu\nV0:%d\nV1:%d\r",id++,millis(),V0,V1); // \nRSSI: %ld dbm,WiFi.RSSI()
   udp.endPacket();
   // Serial.println("Paquete enviado");
 }

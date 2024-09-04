@@ -30,7 +30,6 @@ struct UDPConnection {
           Tiempo
   primer_tiempo -> Momento en el que llega el 1er pck
   tienpo -> Momento en el que se recibe el pck 
-  diff_tiempo -> Diferencia de tiempo
   */
   unsigned long perdidos;
   unsigned long primer_id;
@@ -43,7 +42,6 @@ struct UDPConnection {
 
   unsigned long primer_tiempo;
   unsigned long tiempo;
-  unsigned long diff_tiempo;
 
   // Constructor
   UDPConnection(unsigned int p) : 
@@ -54,8 +52,8 @@ struct UDPConnection {
   tiempo(0),
   id(1), 
   cont(1), 
-  ultima_medicion_V0(0),
-  ultima_medicion_V1(0),
+  ultima_medicion_V0(-1),
+  ultima_medicion_V1(-1),
   primera_vez(1) {}
 };
 
@@ -240,70 +238,70 @@ const byte numeros[16][8] = {
 };
 
 const byte numeros_chiquitos[10][4] = {
-    // Número 0
+    // Numero 0
     {
       0b01100000, 
       0b10010000, 
       0b10010000, 
       0b01100000
     },
-    // Número 1
+    // Numero 1
     {
         0b00100000,
         0b01100000,
         0b00100000,
         0b01110000,
     },
-    // Número 2
+    // Numero 2
     {
         0b11100000,
         0b00110000,
         0b01000000,
         0b11110000
     },
-    // Número 3
+    // Numero 3
     {
         0b11100000,
         0b00110000,
         0b00110000,
         0b11100000
     },
-    // Número 4
+    // Numero 4
     {
         0b10100000,
         0b10100000,
         0b11110000,
         0b00100000
     },
-    // Número 5
+    // Numero 5
     {
         0b01110000,
         0b01000000,
         0b00110000,
         0b01110000
     },
-    // Número 6
+    // Numero 6
     {
         0b1110000,
         0b1000000,
         0b1110000,
         0b1110000
     },
-    // Número 7
+    // Numero 7
     {
         0b11110000,
         0b00100000,
         0b01000000,
         0b01000000,
     },
-    // Número 8
+    // Numero 8
     {
         0b01100000,
         0b11010000,
         0b10110000,
         0b01100000
     },
-    // Número 9
+    // Numero 9
     {
         0b01110000,
         0b01110000,
@@ -357,7 +355,7 @@ void loop() {
     }
 }
 
-// Funcion para recibir paquetes de una conexion UDP específica
+// Funcion para recibir paquetes de una conexion UDP especifica
 bool recibir_paquete(UDPConnection &conn) {
   //Serial.println("Recibir paquete");
   // Comprobamos si ha llegado algun paquete UDP
@@ -378,14 +376,14 @@ bool recibir_paquete(UDPConnection &conn) {
 void manejaTocados(UDPConnection &principal, UDPConnection &secundario) {
     Serial.printf("Maneja Tocados: %u\n", principal.port);
 
-    tratar_paquete(principal);
+    tratar_paquete(principal,secundario);
     if (detectar_tocado(principal)) {
         // Hay tocado en esta conexion
-        // Blanco o valido?
-        tocadoValido(principal,secundario);
-
         // Unico o doble?
         manejaDobles(principal,secundario);
+        // Ya hemos cogido mas paquetes 
+        // Blanco o valido?
+        tocadoValido(principal,secundario);
     }
 
     // NO es esta conexion la que nos ha llegado el paquete de
@@ -393,27 +391,41 @@ void manejaTocados(UDPConnection &principal, UDPConnection &secundario) {
 
 
 // Funcion para asignar valores del paquete y detectar si es la primera vez
-void tratar_paquete(UDPConnection &conn){
+void tratar_paquete(UDPConnection &conn, UDPConnection &secundario){
     Serial.println("Tratar paquete");
 /*
     &UDPConnection conn: Objeto de comunicacion UDP
 */
 
     // A FUTURO MOVER ESTO A RECIBIR PAQUETE Y DEJAR SOLO EL IF
-    // Buffer para almacenar el ID
-    char idStr[16];  // Suponiendo que el ID no superara los 15 caracteres + '\0'
+    // Buffers
+    char idStr[11];  // Suponiendo que el ID no superara los 11 caracteres + '\0'
+    // Voltaje0
+    char voltajeStr0[11];  // Suponiendo que el voltaje no supera los 10 caracteres + \0
+    // Voltaje1
+    char voltajeStr1[11];  // Suponiendo que el voltaje no supera los 10 caracteres + \0
 
-    // Obtener el valor del ID
+    // Obtener_datos
+    obtener_dato(conn.incomingPacket, "V0:", voltajeStr0, sizeof(voltajeStr0));
     obtener_dato(conn.incomingPacket, "ID:", idStr, sizeof(idStr));
+    obtener_dato(secundario.incomingPacket, "V1:", voltajeStr1, sizeof(voltajeStr1));
 
-    // Convertir el ID a int
+
+    // V0
+    int voltaje_actual0 = atoi(voltajeStr0);
+    conn.ultima_medicion_V0 = voltaje_actual0;
+
+    // V1
+    int voltaje_actual1 = atoi(voltajeStr1);
+    secundario.ultima_medicion_V1 = voltaje_actual1;
+
+    // ID
     conn.id = atoi(idStr);
 
     // Vemos si es la primera vez que se conecta
     if (conn.primera_vez) {
         // Asignamos tiempos
         conn.primer_tiempo = conn.tiempo;
-        conn.diff_tiempo = conn.primer_tiempo - millis();
         // Asignamos IDs
         conn.cont = conn.id;
         conn.primer_id = conn.id;
@@ -426,7 +438,7 @@ void tratar_paquete(UDPConnection &conn){
     //analizar_perdidas(conn,idStr); 
 }
 
-// Funcion para analizar un paquete específico
+// Funcion para analizar un paquete especifico
 void analizar_perdidas(UDPConnection &conn, String idStr) {
         Serial.println("Analizar perdidas");
 
@@ -461,21 +473,11 @@ bool detectar_tocado(UDPConnection &conn){
     UDPConnection &conn: Comunicacion de la que analizar el voltaje
       Devolver true si esta tocando y false si no
 */
-    // Buffer para almacenar el valor de voltaje
-    char voltajeStr[16];  // Suponiendo que el voltaje no supera los 15 caracteres + \0
 
-    // Analizar voltaje
-    obtener_dato(conn.incomingPacket, "V0:", voltajeStr, sizeof(voltajeStr));
-
-    // Convertir el voltaje a int
-    int voltaje_actual = atoi(voltajeStr);
-    conn.ultima_medicion_V0 = voltaje_actual;
     // Si el voltaje actual es 0, el boton esta presionado y esta abierto el circuito -> V = 0
-    if (voltaje_actual == 0) {
-        Serial.println("Esta habiendo tocado");
+    if (conn.ultima_medicion_V0 == 0) {
         return 1;
     } else { // El boton esta abierto, no esta habiendo tocado
-        Serial.println("No Esta habiendo tocado");
         return 0;
     }
 }
@@ -490,12 +492,19 @@ bool tocadoValido(UDPConnection &principal, UDPConnection &secundario){
 
     **TIENE QUE ESTAR PASANDO AL MISMO TIEMPO***
 */
+
+    Serial.printf("Principal: %u V0: %u Secundario: %u V1: %u\n",principal.port,principal.ultima_medicion_V0,secundario.port,secundario.ultima_medicion_V1);
     // Si el florete de uno da tocado y el otro recibe por tierra el tocado
     if (principal.ultima_medicion_V0 == 0 && secundario.ultima_medicion_V1 != 0){
         // TOCADO VALIDO
+        Serial.printf("TOCADO VALIDO de %u\n", principal.port);
+        Serial.printf("Diferencia de tiempo: %u\n", principal.tiempo - secundario.tiempo);
         return 1;
     }else{
         // TOCADO NO VALIDO
+        Serial.printf("TOCADO NO VALIDO de %u\n", principal.port);
+        Serial.printf("Diferencia de tiempo: %u\n", principal.tiempo - secundario.tiempo);
+
         return 0;
     }
     // Si esta el V0J1 y el V1J2 -> Valido
@@ -509,22 +518,24 @@ void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
     Serial.println("Maneja Dobles");
 
     // Coger la flag correcta
-    bool flag_actualizado = (principal.port == 4210) ? actualizado1 : actualizado2;
+    bool flag_actualizado = (principal.port == connection1.port) ? actualizado1 : actualizado2;
 
     // Verificar si necesitamos paquetes nuevos o tenemos paquetes recientes
     if (flag_actualizado) {
         unsigned long tiempo_diff = (principal.tiempo > secundario.tiempo)  // Vemos cual es mas grande
                                     ? principal.tiempo - secundario.tiempo 
                                     : secundario.tiempo - principal.tiempo;
-        if (tiempo_diff <= 300) { 
+        if (tiempo_diff <= 300 && secundario.tiempo >= principal.tiempo) { // && secundario.tiempo >= principal.tiempo (para asegurarnos que coge uno igual o despues del principal)
             // Tenemos paquete suficientemente reciente
-            tratar_paquete(secundario);
+            tratar_paquete(secundario,principal);
             
-            if (detectar_tocado(secundario)) { // Usamos el voltaje del florete como detector de tocado
+            if (detectar_tocado(secundario)) { // Usamos el voltaje del florete como detector de estar haciendo tocado
+                Serial.printf("Tocado YA detectado de %u\n",secundario.port);
                 // Hay doble tocado
                 // Blanco o valido?
                 tocadoValido(secundario, principal); // Hay que pasarlo del reves ya que estamos detectando al reves
-                return; // Salir de la función
+                //Serial.printf("Diferencia entre %u y %u: %u",principal.port,secundario.port,tiempo_diff)
+                return; // Salir de la funcion
             }
             // No hay doble tocado - solo tocado principal
         } else {
@@ -535,26 +546,31 @@ void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
         // Necesitamos paquetes
         pedir_paquetes(principal, secundario);
     }
+    //delay(4000);
 }
+
 void pedir_paquetes(UDPConnection &principal, UDPConnection &secundario){
+    Serial.println("Pedir Paquetes");
     while (millis() - principal.tiempo <= 300){ // Durante los 300ms de ventana escuchar paquetes
         if (recibir_paquete(secundario)) { // Escuchamos a ver si llegan paquetes del secundario
             // LLega paquete del contrario
-            tratar_paquete(secundario);
+            tratar_paquete(secundario,principal);
             if (detectar_tocado(secundario)) { // Usamos el voltaje del florete como detector de tocado
+                Serial.printf("Tocado pedido  de %u\n",secundario.port);
                 // Hay doble tocado
                 // Blanco o valido?
                 tocadoValido(secundario,principal); // Hay que pasarlo del reves ya que estamos detectando al reves
                 return; // Salir de la funcion
             }
         }
-        // No hay doble tocado -  solo tocado principal
     }
+    // No hay doble tocado -  solo tocado principal
 }
 
-// Funcion para obtener un dato específico del paquete usando char[]
+
+// Funcion para obtener un dato especifico del paquete usando char[]
 void obtener_dato(const char* packet, const char* clave, char* valor, size_t maxLen) {
-    Serial.println("Obtener dato");
+    //Serial.println("Obtener dato");
 
 /*
       
@@ -592,7 +608,7 @@ void obtener_dato(const char* packet, const char* clave, char* valor, size_t max
 void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = false) {
     /*
         byte numero: numero a escribir en la matriz 
-        byte pos_x: posición en donde se escribe el numero
+        byte pos_x: posicion en donde se escribe el numero
         bool chiquitos: si es true, escribe numeros pequeños; si es false, escribe numeros grandes
         bool despl: true - numero chiquito de abajo; false - no abajo
     */
@@ -617,7 +633,7 @@ void ponerNumero(byte numero, byte pos_x, bool chiquitos = false, bool despl = f
         // Poner el valor en la matriz
         mx.setRow(pos_x, columna, valor);
     }
-    Serial.println(); // Nueva línea despues de dibujar el numero
+    Serial.println(); // Nueva linea despues de dibujar el numero
 }
 
 void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
@@ -639,7 +655,7 @@ void ponerTiempo(byte minutos, byte segundos, bool min_cambio = false) {
     int unidades_segundos = segundos % 10; // Unidades de segundos
     ponerNumero(unidades_segundos,1,true,true);
     
-    // Mostrar minutos en la matriz, comenzando en la posición 15
+    // Mostrar minutos en la matriz, comenzando en la posicion 15
     if (min_cambio){ponerNumero(minutos, 2);}
 }
 
@@ -665,8 +681,8 @@ void ponerPuntos(byte &puntaje1, byte &puntaje2) {
     puntaje1 = constrain(puntaje1, 0, 15);
     puntaje2 = constrain(puntaje2, 0, 15);
     // Copiar los puntos en la matriz
-    ponerNumero(puntaje1, 3);    // Puntaje jugador 1, posición 24
-    ponerNumero(puntaje2, 0);     // Puntaje jugador 2, posición 0
+    ponerNumero(puntaje1, 3);    // Puntaje jugador 1, posicion 24
+    ponerNumero(puntaje2, 0);     // Puntaje jugador 2, posicion 0
 }
 
 void resetPuntos(){
