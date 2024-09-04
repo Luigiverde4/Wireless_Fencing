@@ -344,8 +344,7 @@ void loop() {
     // Procesar los paquetes si hay actualizaciones
     if (actualizado1) { 
         manejaTocados(connection1, connection2);
-    }
-    if (actualizado2) {
+    }else if (actualizado2) {
         manejaTocados(connection2, connection1);
     }
 
@@ -374,7 +373,7 @@ bool recibir_paquete(UDPConnection &conn) {
 
 // Funcion para los tocados
 void manejaTocados(UDPConnection &principal, UDPConnection &secundario) {
-    Serial.printf("Maneja Tocados: %u\n", principal.port);
+    // Serial.printf("Maneja Tocados: %u\n", principal.port);
 
     tratar_paquete(principal,secundario);
     if (detectar_tocado(principal)) {
@@ -392,7 +391,7 @@ void manejaTocados(UDPConnection &principal, UDPConnection &secundario) {
 
 // Funcion para asignar valores del paquete y detectar si es la primera vez
 void tratar_paquete(UDPConnection &conn, UDPConnection &secundario){
-    Serial.println("Tratar paquete");
+    // Serial.println("Tratar paquete");
 /*
     &UDPConnection conn: Objeto de comunicacion UDP
 */
@@ -435,7 +434,7 @@ void tratar_paquete(UDPConnection &conn, UDPConnection &secundario){
     }
 
     // Analisis de perdidas
-    //analizar_perdidas(conn,idStr); 
+    analizar_perdidas(conn,idStr); 
 }
 
 // Funcion para analizar un paquete especifico
@@ -468,7 +467,7 @@ void analizar_perdidas(UDPConnection &conn, String idStr) {
 
 // Funcion para detectar si esta habiendo un tocado
 bool detectar_tocado(UDPConnection &conn){
-    Serial.println("Detectar Tocado");
+    // Serial.println("Detectar Tocado");
 /*
     UDPConnection &conn: Comunicacion de la que analizar el voltaje
       Devolver true si esta tocando y false si no
@@ -484,7 +483,7 @@ bool detectar_tocado(UDPConnection &conn){
 
 // Funcion para detectar si un tocado es valido
 bool tocadoValido(UDPConnection &principal, UDPConnection &secundario){
-    Serial.println("Tocado Valido");
+    // Serial.println("Tocado Valido");
 
 /*
     principal: Conexion UDP del que esta tocando
@@ -494,11 +493,15 @@ bool tocadoValido(UDPConnection &principal, UDPConnection &secundario){
 */
 
     Serial.printf("Principal: %u V0: %u Secundario: %u V1: %u\n",principal.port,principal.ultima_medicion_V0,secundario.port,secundario.ultima_medicion_V1);
+    unsigned long tiempo_diff = (principal.tiempo > secundario.tiempo)  // Vemos cual es mas grande
+                                 ? principal.tiempo - secundario.tiempo 
+                                : secundario.tiempo - principal.tiempo;
+    
     // Si el florete de uno da tocado y el otro recibe por tierra el tocado
     if (principal.ultima_medicion_V0 == 0 && secundario.ultima_medicion_V1 != 0){
         // TOCADO VALIDO
         Serial.printf("TOCADO VALIDO de %u\n", principal.port);
-        Serial.printf("Diferencia de tiempo: %u\n", principal.tiempo - secundario.tiempo);
+        Serial.printf("Diferencia de tiempo: %u\n", tiempo_diff);
         return 1;
     }else{
         // TOCADO NO VALIDO
@@ -515,7 +518,7 @@ bool tocadoValido(UDPConnection &principal, UDPConnection &secundario){
 
 // Funcion para manejar tocados dobles
 void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
-    Serial.println("Maneja Dobles");
+    // Serial.println("Maneja Dobles");
 
     // Coger la flag correcta
     bool flag_actualizado = (principal.port == connection1.port) ? actualizado1 : actualizado2;
@@ -550,7 +553,7 @@ void manejaDobles(UDPConnection &principal, UDPConnection &secundario) {
 }
 
 void pedir_paquetes(UDPConnection &principal, UDPConnection &secundario){
-    Serial.println("Pedir Paquetes");
+    // Serial.println("Pedir Paquetes");
     while (millis() - principal.tiempo <= 300){ // Durante los 300ms de ventana escuchar paquetes
         if (recibir_paquete(secundario)) { // Escuchamos a ver si llegan paquetes del secundario
             // LLega paquete del contrario
